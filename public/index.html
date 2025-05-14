@@ -106,7 +106,18 @@
                 </fieldset>
                 <p>Current API Keys Stored: <span id="apiKeyCount">0</span></p>
             </form>
-            <div id="settingsResponseArea" class="hidden response-area"></div>
+            <div id="settingsResponseArea" class="hidden response-area" style="margin-bottom: 1em;"></div>
+
+            <form id="sessionCookieForm" style="margin-top: 1.5rem;">
+                <fieldset>
+                    <label for="bemisSessionCookie">
+                        BEMIS Session Cookie:
+                        <input type="password" id="bemisSessionCookie" name="bemisSessionCookie" placeholder="Enter your BEMIS session cookie value">
+                    </label>
+                    <button type="submit" id="saveSessionCookieButton">Save Session Cookie</button>
+                </fieldset>
+            </form>
+            <div id="sessionResponseArea" class="hidden response-area"></div>
         </section>
         
     </main>

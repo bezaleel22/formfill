@@ -27,15 +27,6 @@ COPY --from=base /usr/src/app/bun.lockb ./bun.lockb
 COPY --from=base /usr/src/app/dist ./dist
 COPY --from=base /usr/src/app/public ./public
 
-# Copy session.txt and api_keys.json.
-# IMPORTANT: In a real production environment, these sensitive files
-# should be managed via secrets or mounted as volumes, not copied directly into the image.
-# For demonstration, we copy them. Ensure .gitignore does not track them if they contain real secrets.
-# If these files are not present at build time, the COPY command will fail.
-# Consider creating placeholder/empty files or adjusting your app to handle their absence.
-COPY session.txt ./
-COPY api_keys.json ./
-
 # Expose the port the app runs on
 # Hono/Bun typically defaults to 3000 if not specified otherwise in your code (e.g., src/index.ts)
 EXPOSE 3000

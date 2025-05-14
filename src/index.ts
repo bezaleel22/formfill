@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { serveStatic } from "hono/bun"; // For serving static files with Bun
 import { secureHeaders } from "hono/secure-headers"; // Optional: for security headers
 import { logger } from "hono/logger"; // Optional: for logging
+import fs from "fs/promises"; // For writing to session.txt
 
 import type { StudentData } from "./interfaces";
 import { processStudentSubmission } from "./bemisService";
@@ -37,12 +38,12 @@ app.post("/api/submit-student", async (c) => {
     );
     // Return the full response from bemisService, using its status
     return c.json(
-      { 
-        success: bemisResponse.success, 
+      {
+        success: bemisResponse.success,
         message: bemisResponse.message,
         status: bemisResponse.status, // BEMIS status
-        data: bemisResponse.data      // BEMIS data (e.g. error details)
-      }, 
+        data: bemisResponse.data, // BEMIS data (e.g. error details)
+      },
       (bemisResponse.status || (bemisResponse.success ? 200 : 500)) as any // Use BEMIS status or default
     );
   } catch (error: any) {
@@ -64,11 +65,14 @@ app.post("/api/extract-form-data", async (c) => {
   const aiModelFromForm = formData.get("aiModel") as string | null; // Explicitly type
 
   let selectedAiModel = DEFAULT_AI_MODEL; // Use default from constants
-  if (aiModelFromForm && typeof aiModelFromForm === 'string' && aiModelFromForm.trim() !== '') {
-      selectedAiModel = aiModelFromForm.trim();
+  if (
+    aiModelFromForm &&
+    typeof aiModelFromForm === "string" &&
+    aiModelFromForm.trim() !== ""
+  ) {
+    selectedAiModel = aiModelFromForm.trim();
   }
   console.log(`AI Extraction: Using AI Model: ${selectedAiModel}`);
-
 
   if (!formImageFile || !(formImageFile instanceof File)) {
     return c.json(
@@ -84,7 +88,11 @@ app.post("/api/extract-form-data", async (c) => {
     process.env.OPENROUTER_API_KEY || (await apiKeyService.getNextApiKey());
   if (!apiKey) {
     return c.json(
-      { success: false, message: "No API key configured for AI service. Please add one in Settings." },
+      {
+        success: false,
+        message:
+          "No API key configured for AI service. Please add one in Settings.",
+      },
       500
     );
   }
@@ -108,7 +116,11 @@ app.post("/api/extract-form-data", async (c) => {
 
   try {
     // Pass selectedAiModel to the extraction service
-    const extractedData = await extractStudentDataFromImage(imageBuffer, apiKey, selectedAiModel); 
+    const extractedData = await extractStudentDataFromImage(
+      imageBuffer,
+      apiKey,
+      selectedAiModel
+    );
 
     if (extractedData) {
       console.log(
@@ -128,19 +140,28 @@ app.post("/api/extract-form-data", async (c) => {
       return c.json(
         {
           success: false,
-          message: "Could not extract data from image. AI service returned no data.",
+          message:
+            "Could not extract data from image. AI service returned no data.",
         },
         400 // Or 500 if it's an unexpected server-side AI issue
       );
     }
   } catch (aiError: any) {
-        console.error(`AI Extraction Service Error in Endpoint /api/extract-form-data (Model: ${selectedAiModel}):`, aiError);
-        return c.json({ 
-            success: false, 
-            message: aiError.message || `An error occurred during AI processing with model ${selectedAiModel}.`,
-            errorDetails: aiError.cause // Include cause if available (e.g., from OpenRouter API error)
-        }, 500); // Internal Server Error for AI failures
-    }
+    console.error(
+      `AI Extraction Service Error in Endpoint /api/extract-form-data (Model: ${selectedAiModel}):`,
+      aiError
+    );
+    return c.json(
+      {
+        success: false,
+        message:
+          aiError.message ||
+          `An error occurred during AI processing with model ${selectedAiModel}.`,
+        errorDetails: aiError.cause, // Include cause if available (e.g., from OpenRouter API error)
+      },
+      500
+    ); // Internal Server Error for AI failures
+  }
 });
 
 // --- API Key Management Endpoints ---
@@ -150,14 +171,22 @@ app.post("/api/settings/apikeys", async (c) => {
   const body = await c.req.json();
   const { apiKey: apiKeyToAdd } = body;
 
-  if (!apiKeyToAdd || typeof apiKeyToAdd !== 'string') { // Ensure it's a string
-    return c.json({ success: false, message: "API key is required and must be a string." }, 400);
+  if (!apiKeyToAdd || typeof apiKeyToAdd !== "string") {
+    // Ensure it's a string
+    return c.json(
+      { success: false, message: "API key is required and must be a string." },
+      400
+    );
   }
   try {
     const result = await apiKeyService.addApiKey(apiKeyToAdd);
     return c.json(
       result,
-      result.success ? 201 : (result.message.includes("already exists") ? 409 : 400)
+      result.success
+        ? 201
+        : result.message.includes("already exists")
+        ? 409
+        : 400
     );
   } catch (error: any) {
     console.error("Add API Key Endpoint Error:", error);
@@ -182,37 +211,74 @@ app.get("/api/settings/apikeys/count", async (c) => {
 });
 
 // Endpoint for the frontend to fetch the current/next API key
-app.get('/api/settings/apikeys/current', async (c) => {
-    try {
-        const apiKey = await apiKeyService.getNextApiKey(); // Or getFirstApiKey if that's more appropriate
-        if (apiKey) {
-            return c.json({ success: true, apiKey: apiKey });
-        } else {
-            return c.json({ success: false, message: "No API Key available." }, 404);
-        }
-    } catch (error: any) {
-        console.error('Get Current API Key Endpoint Error:', error);
-        return c.json({ success: false, message: `Server error: ${error.message}` }, 500);
+app.get("/api/settings/apikeys/current", async (c) => {
+  try {
+    const apiKey = await apiKeyService.getNextApiKey(); // Or getFirstApiKey if that's more appropriate
+    if (apiKey) {
+      return c.json({ success: true, apiKey: apiKey });
+    } else {
+      return c.json({ success: false, message: "No API Key available." }, 404);
     }
+  } catch (error: any) {
+    console.error("Get Current API Key Endpoint Error:", error);
+    return c.json(
+      { success: false, message: `Server error: ${error.message}` },
+      500
+    );
+  }
 });
 
 app.delete("/api/settings/apikeys", async (c) => {
   const body = await c.req.json();
   const { apiKey: apiKeyToRemove } = body;
 
-  if (!apiKeyToRemove || typeof apiKeyToRemove !== 'string') { // Ensure it's a string
+  if (!apiKeyToRemove || typeof apiKeyToRemove !== "string") {
+    // Ensure it's a string
     return c.json(
-      { success: false, message: "API key to remove is required and must be a string." },
+      {
+        success: false,
+        message: "API key to remove is required and must be a string.",
+      },
       400
     );
   }
   try {
     const result = await apiKeyService.removeApiKey(apiKeyToRemove);
-    return c.json(result, result.success ? 200 : (result.message.includes("not found") ? 404 : 400));
+    return c.json(
+      result,
+      result.success ? 200 : result.message.includes("not found") ? 404 : 400
+    );
   } catch (error: any) {
     console.error("Remove API Key Endpoint Error:", error);
     return c.json(
       { success: false, message: `Server error: ${error.message}` },
+      500
+    );
+  }
+});
+
+// --- BEMIS Session Cookie Management Endpoint ---
+app.post("/api/settings/session-cookie", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { sessionCookie } = body;
+
+    if (!sessionCookie || typeof sessionCookie !== 'string' || sessionCookie.trim() === '') {
+      return c.json({ success: false, message: "Session cookie is required and must be a non-empty string." }, 400);
+    }
+
+    await fs.writeFile("session.txt", sessionCookie.trim());
+    console.log("BEMIS session.txt updated successfully.");
+    return c.json({ success: true, message: "BEMIS session cookie saved successfully." }, 200);
+
+  } catch (error: any) {
+    console.error("Save Session Cookie Endpoint Error:", error);
+    // Check if it's a JSON parsing error
+    if (error instanceof SyntaxError && error.message.includes("JSON")) {
+        return c.json({ success: false, message: "Invalid JSON payload." }, 400);
+    }
+    return c.json(
+      { success: false, message: `Server error saving session cookie: ${error.message}` },
       500
     );
   }

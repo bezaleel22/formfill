@@ -26,6 +26,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const apiKeyCountElement = document.getElementById('apiKeyCount');
     const settingsResponseArea = document.getElementById('settingsResponseArea');
 
+    // New elements for BEMIS Session Cookie
+    const sessionCookieForm = document.getElementById('sessionCookieForm');
+    const bemisSessionCookieInput = document.getElementById('bemisSessionCookie');
+    const saveSessionCookieButton = document.getElementById('saveSessionCookieButton');
+    const sessionResponseArea = document.getElementById('sessionResponseArea');
+
     let stream = null;
     let currentStudentDataForSubmission = null; // To store the full AI extracted data
 
@@ -354,4 +360,40 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initial fetch of API key count
     fetchApiKeyCount();
 
+    // --- Settings: BEMIS Session Cookie Management ---
+    if (sessionCookieForm && bemisSessionCookieInput && saveSessionCookieButton && sessionResponseArea) {
+        sessionCookieForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            if (sessionResponseArea) {
+                sessionResponseArea.className = 'hidden';
+                sessionResponseArea.innerHTML = '';
+            }
+            const cookieValue = bemisSessionCookieInput.value.trim();
+
+            if (!cookieValue) {
+                displayMessage(sessionResponseArea, 'Please enter the BEMIS session cookie value.', false);
+                return;
+            }
+
+            if (saveSessionCookieButton) saveSessionCookieButton.setAttribute('aria-busy', 'true');
+
+            try {
+                const response = await fetch('/api/settings/session-cookie', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionCookie: cookieValue }),
+                });
+                const result = await response.json();
+                displayMessage(sessionResponseArea, result.message, result.success);
+                if (result.success) {
+                    bemisSessionCookieInput.value = ''; // Clear input on success
+                }
+            } catch (error) {
+                console.error('Error saving session cookie:', error);
+                displayMessage(sessionResponseArea, `Client-side error saving session cookie: ${error.message}`, false);
+            } finally {
+                if (saveSessionCookieButton) saveSessionCookieButton.removeAttribute('aria-busy');
+            }
+        });
+    }
 });
