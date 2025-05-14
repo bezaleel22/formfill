@@ -1,24 +1,23 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- Main Form Elements ---
-    const studentForm = document.getElementById('studentForm'); // Now part of inlineReviewSubmitControls
+    const studentForm = document.getElementById('studentForm'); 
     const aiFormExtractForm = document.getElementById('aiFormExtractForm');
     const formImageUpload = document.getElementById('formImageUpload');
     const imagePreviewContainer = document.getElementById('imagePreviewContainer');
     const imagePreview = document.getElementById('imagePreview');
     const aiModelSelect = document.getElementById('aiModelSelect');
-    const schoolIdInput = document.getElementById('schoolId'); // Now in sidebar
+    const schoolIdInput = document.getElementById('schoolId'); 
 
     // --- Response Area Wrappers ---
     const aiResponseAreaWrapper = document.getElementById('aiResponseAreaWrapper');
-    const bemisResponseAreaWrapper = document.getElementById('bemisResponseAreaWrapper'); // NEW for BEMIS submission results
+    const bemisResponseAreaWrapper = document.getElementById('bemisResponseAreaWrapper'); 
     const settingsResponseAreaWrapper = document.getElementById('settingsResponseAreaWrapper');
     const sessionResponseAreaWrapper = document.getElementById('sessionResponseAreaWrapper');
 
     // --- UI Control Elements ---
     const extractionProgressBarContainer = document.getElementById('extractionProgressBarContainer');
-    const inlineReviewSubmitControls = document.getElementById('inlineReviewSubmitControls'); // NEW
-    const submitBemisButton = document.getElementById('submitBemisButton'); // Icon button
-    // const submitSpinner = document.getElementById('submitSpinner'); // Spinner for BEMIS submit - can be added back to button if needed
+    const inlineReviewSubmitControls = document.getElementById('inlineReviewSubmitControls'); 
+    const submitBemisButton = document.getElementById('submitBemisButton'); 
 
     // --- Name Review (within inlineReviewSubmitControls) ---
     const studentFullNameInput = document.getElementById('studentFullName');
@@ -90,39 +89,60 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Sidebar Toggle Logic ---
     function toggleSidebar(open) {
+        // console.log(`toggleSidebar called with open: ${open}`);
         if (!settingsSidebar || !sidebarOverlay || !openIcon || !closeIcon) {
+            // console.error('Sidebar elements not found for toggleSidebar!');
             return;
         }
+
         if (open) {
             settingsSidebar.classList.remove('translate-x-full');
-            sidebarOverlay.classList.remove('hidden');
+            sidebarOverlay.classList.remove('hidden'); // Show overlay
             openIcon.classList.add('hidden');
             closeIcon.classList.remove('hidden');
+            // console.log('Sidebar opened. Overlay shown.');
         } else {
             settingsSidebar.classList.add('translate-x-full');
-            sidebarOverlay.classList.add('hidden');
+            sidebarOverlay.classList.add('hidden'); // Hide overlay
             openIcon.classList.remove('hidden');
             closeIcon.classList.add('hidden');
+            // console.log('Sidebar closed. Overlay hidden.');
         }
     }
 
     if (sidebarToggle) {
-        sidebarToggle.addEventListener('click', () => {
+        sidebarToggle.addEventListener('click', (event) => {
+            event.stopPropagation(); // Prevent click from bubbling, just in case
+            // console.log('sidebarToggle clicked.');
+            if (!settingsSidebar) {
+                // console.error('settingsSidebar not found on toggle click!');
+                return;
+            }
             const isCurrentlyOpen = !settingsSidebar.classList.contains('translate-x-full');
+            // console.log(`Sidebar is currently open: ${isCurrentlyOpen}. Toggling to: ${!isCurrentlyOpen}`);
             toggleSidebar(!isCurrentlyOpen);
         });
+    } else {
+        // console.error('sidebarToggle element not found!');
     }
 
     if (closeSidebarButton) {
-        closeSidebarButton.addEventListener('click', () => {
+        closeSidebarButton.addEventListener('click', (event) => {
+            event.stopPropagation();
+            // console.log('closeSidebarButton clicked.');
             toggleSidebar(false);
         });
+    } else {
+        // console.error('closeSidebarButton element not found!');
     }
 
     if (sidebarOverlay) {
-        sidebarOverlay.addEventListener('click', () => {
+        sidebarOverlay.addEventListener('click', (event) => {
+            // console.log('sidebarOverlay clicked.');
             toggleSidebar(false);
         });
+    } else {
+        // console.error('sidebarOverlay element not found!');
     }
 
 
@@ -231,16 +251,41 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Camera Modal Logic ---
     async function startCamera() { 
         try {
-            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } });
-                if (cameraFeed) cameraFeed.srcObject = stream;
-            } else { displayMessage(aiResponseAreaWrapper, 'Camera access (getUserMedia) is not supported.', false); }
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                displayMessage(aiResponseAreaWrapper, 'Camera access (getUserMedia API) is not supported by your browser.', false); 
+                if (cameraModal) cameraModal.classList.add('hidden');
+                return;
+            }
+            // Check for secure context (HTTPS or localhost)
+            if (!window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                displayMessage(aiResponseAreaWrapper, 'Camera access requires a secure connection (HTTPS). Your current connection is not secure.', false);
+                if (cameraModal) cameraModal.classList.add('hidden');
+                return;
+            }
+            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } });
+            if (cameraFeed) cameraFeed.srcObject = stream;
+
         } catch (err) {
             let message = 'Error accessing camera. ';
-            if (err.name === "NotAllowedError") message += "Permission denied.";
-            else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") message += "No camera found.";
-            else if (err.name === "NotReadableError" || err.name === "TrackStartError") message += "Camera in use or cannot start.";
-            else message += err.message;
+            if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+                message += "Permission denied. Please check browser/OS camera permissions.";
+                if (!window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                    message += " Also, ensure site is served over HTTPS.";
+                }
+            } else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
+                message += "No camera found.";
+            } else if (err.name === "NotReadableError" || err.name === "TrackStartError") {
+                message += "Camera is already in use or cannot start.";
+                 if (!window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                    message += " Also, ensure site is served over HTTPS.";
+                }
+            } else if (err.name === "OverconstrainedError" || err.name === "ConstraintNotSatisfiedError") {
+                message += `Camera doesn't support requested settings. (${err.constraint || ''})`;
+            } else if (err.name === "TypeError") {
+                 message += "Invalid camera constraints or setup.";
+            } else {
+                message += `(${err.name || 'UnknownError'}: ${err.message || 'No details'}).`;
+            }
             displayMessage(aiResponseAreaWrapper, message, false);
             if (cameraModal) cameraModal.classList.add('hidden');
         }
@@ -249,10 +294,25 @@ document.addEventListener('DOMContentLoaded', () => {
         if (stream) { stream.getTracks().forEach(track => track.stop()); stream = null; }
         if (cameraFeed) cameraFeed.srcObject = null;
     }
-    if (mobileScanButton && cameraModal) mobileScanButton.addEventListener('click', () => { cameraModal.classList.remove('hidden'); startCamera(); });
-    if (closeCameraModalButton && cameraModal) closeCameraModalButton.addEventListener('click', () => { cameraModal.classList.add('hidden'); stopCamera(); });
+
+    if (mobileScanButton && cameraModal) {
+        mobileScanButton.addEventListener('click', (event) => {
+            event.stopPropagation(); // Good practice for buttons that open modals
+            // console.log('mobileScanButton clicked');
+            cameraModal.classList.remove('hidden'); 
+            startCamera(); 
+        });
+    }
+    if (closeCameraModalButton && cameraModal) {
+        closeCameraModalButton.addEventListener('click', () => { 
+            // console.log('closeCameraModalButton clicked');
+            cameraModal.classList.add('hidden'); 
+            stopCamera(); 
+        });
+    }
     if (captureButton && cameraFeed && photoCanvas && formImageUpload) {
         captureButton.addEventListener('click', () => {
+            // console.log('captureButton clicked');
             if (!stream || !cameraFeed.srcObject) { displayMessage(aiResponseAreaWrapper, "Camera not active.", false); return; }
             const videoElement = cameraFeed; const canvasElement = photoCanvas; const context = canvasElement.getContext('2d');
             canvasElement.width = videoElement.videoWidth; canvasElement.height = videoElement.videoHeight;
@@ -364,6 +424,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Initial fetch of API key count
+    // Initial fetch of API key count & ensure overlay is correctly hidden if sidebar isn't open
     if (typeof fetchApiKeyCount === "function") fetchApiKeyCount();
+    if (settingsSidebar && sidebarOverlay && settingsSidebar.classList.contains('translate-x-full')) {
+        sidebarOverlay.classList.add('hidden'); // Ensure overlay is hidden if sidebar starts closed
+    }
 });

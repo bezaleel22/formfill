@@ -1,0 +1,1 @@
+We should not use sidebar anymore, instead we should use tabs in the Upload Section. We will have two tabs "AI Extract" and "Settings & Model". Please ensure to read the public/index.html, i made some text changes
