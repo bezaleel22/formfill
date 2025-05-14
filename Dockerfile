@@ -23,7 +23,6 @@ WORKDIR /usr/src/app
 # Copy only necessary files from the build stage
 COPY --from=base /usr/src/app/node_modules ./node_modules
 COPY --from=base /usr/src/app/package.json ./package.json
-COPY --from=base /usr/src/app/bun.lockb ./bun.lockb
 COPY --from=base /usr/src/app/dist ./dist
 COPY --from=base /usr/src/app/public ./public
 
