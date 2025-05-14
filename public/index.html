@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BEMIS AI Form Extractor</title>
+    <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@latest/css/pico.min.css">
+</head>
+<body>
+    <main class="container">
+        <header>
+            <h1>BEMIS AI Form Extractor</h1>
+        </header>
+
+        <section id="aiExtractionSection">
+            <h2>1. AI Form Data Extraction</h2>
+            <form id="aiFormExtractForm" enctype="multipart/form-data">
+                <fieldset>
+                    <label for="formImageUpload">
+                        Upload Handwritten Form Image:
+                        <input type="file" id="formImageUpload" name="formImage" accept="image/*">
+                    </label>
+                    <button type="button" id="scanButton" aria-label="Scan with Camera">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-camera" viewBox="0 0 16 16">
+                            <path d="M15 12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h1.172a3 3 0 0 0 2.12-.879l.83-.828A1 1 0 0 1 6.827 3h2.344a1 1 0 0 1 .707.293l.828.828A3 3 0 0 0 12.828 5H14a1 1 0 0 1 1 1v6zM2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4H2z"/>
+                            <path d="M8 11a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5zm0 1a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM3 6.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0z"/>
+                        </svg>
+                        Use Camera
+                    </button>
+                </fieldset>
+                <div id="imagePreviewContainer" class="hidden">
+                    <img id="imagePreview" src="#" alt="Image Preview" style="max-width: 100%; max-height: 300px; margin-top: 10px;"/>
+                </div>
+                <fieldset>
+                    <label for="aiModelSelect">
+                        Select AI Model:
+                        <select id="aiModelSelect" name="aiModel">
+                            <option value="qwen/qwen2.5-vl-72b-instruct:free" selected>Qwen2.5 VL 72B Instruct (Free - Default)</option>
+                            <option value="qwen/qwen-vl-max">Qwen VL Max</option>
+                        </select>
+                    </label>
+                </fieldset>
+                <button type="submit" id="extractDataButton">Extract Data with AI</button>
+            </form>
+            <div id="aiResponseArea" class="hidden response-area"></div>
+        </section>
+
+        <dialog id="cameraModal">
+            <article>
+                <header>
+                    <a href="#close" aria-label="Close" class="close close-modal-button"></a>
+                    Take Photo
+                </header>
+                <video id="cameraFeed" autoplay playsinline style="width: 100%; max-width: 500px;"></video>
+                <canvas id="photoCanvas" style="display:none;"></canvas>
+                <footer>
+                    <button id="captureButton" class="contrast">Capture Photo</button>
+                    <button class="secondary close-modal-button">Cancel</button>
+                </footer>
+            </article>
+        </dialog>
+
+        <section id="bemisSubmissionSection">
+            <h2>2. Review & Submit to BEMIS</h2>
+            <form id="studentForm">
+                <fieldset>
+                    <label for="schoolId">
+                        School ID (for BEMIS):
+                        <input type="text" id="schoolId" name="schoolId" value="193" required>
+                    </label>
+                </fieldset>
+
+                <article id="reviewStudentNameSection" class="hidden">
+                    <h4>Review and Correct Student Name:</h4>
+                    <fieldset>
+                        <label for="studentSurname">
+                            Surname:
+                            <input type="text" id="studentSurname" name="student.Surname">
+                        </label>
+                        <label for="studentFirstName">
+                            First Name:
+                            <input type="text" id="studentFirstName" name="student.FirstName">
+                        </label>
+                        <label for="studentOtherName">
+                            Other Name(s):
+                            <input type="text" id="studentOtherName" name="student.OtherName">
+                        </label>
+                    </fieldset>
+                    <p><small>Full extracted data will be submitted. Only name fields are shown for quick correction.</small></p>
+                </article>
+                
+                <button type="submit" id="submitBemisButton">Submit to BEMIS</button>
+            </form>
+            <div id="responseArea" class="hidden response-area"></div>
+        </section>
+
+        <section id="settingsSection">
+            <h2>Settings</h2>
+            <form id="apiKeyForm">
+                <fieldset>
+                    <label for="openRouterApiKey">
+                        OpenRouter API Key:
+                        <input type="password" id="openRouterApiKey" name="openRouterApiKey" placeholder="Enter your OpenRouter API key">
+                    </label>
+                    <button type="submit" id="addApiKeyButton">Add API Key</button>
+                </fieldset>
+                <p>Current API Keys Stored: <span id="apiKeyCount">0</span></p>
+            </form>
+            <div id="settingsResponseArea" class="hidden response-area"></div>
+        </section>
+        
+    </main>
+    <script src="app.js"></script>
+</body>
+</html>

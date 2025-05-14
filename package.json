@@ -1,0 +1,30 @@
+{
+  "name": "bemis-automata",
+  "version": "1.0.0",
+  "description": "Automates BEMIS student data entry using AI form extraction.",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "bun run dist/index.js",
+    "dev": "bun --watch src/index.ts",
+    "build": "bun build ./src/index.ts --outdir ./dist --target bun",
+    "lint": "eslint . --ext .ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "BEMIS",
+    "automation",
+    "AI",
+    "form-extraction",
+    "Hono",
+    "Bun"
+  ],
+  "author": "Onojeta Brown",
+  "license": "ISC",
+  "dependencies": {
+    "hono": "^4.3.2"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.12"
+  },
+  "module": "src/index.ts"
+}
