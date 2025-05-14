@@ -5,15 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const formImageUpload = document.getElementById('formImageUpload');
     const imagePreviewContainer = document.getElementById('imagePreviewContainer');
     const imagePreview = document.getElementById('imagePreview');
-    const aiModelSelect = document.getElementById('aiModelSelect');
-    const schoolIdInput = document.getElementById('schoolId'); 
-
-    // --- Response Area Wrappers ---
-    const aiResponseAreaWrapper = document.getElementById('aiResponseAreaWrapper');
-    const bemisResponseAreaWrapper = document.getElementById('bemisResponseAreaWrapper'); 
-    const settingsResponseAreaWrapper = document.getElementById('settingsResponseAreaWrapper');
-    const sessionResponseAreaWrapper = document.getElementById('sessionResponseAreaWrapper');
-
+    
     // --- UI Control Elements ---
     const extractionProgressBarContainer = document.getElementById('extractionProgressBarContainer');
     const inlineReviewSubmitControls = document.getElementById('inlineReviewSubmitControls'); 
@@ -30,20 +22,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const captureButton = document.getElementById('captureButton');
     const closeCameraModalButton = document.getElementById('closeCameraModalButton');
 
-    // --- Settings Section Elements ---
+    // --- Settings Elements (now in a tab) ---
+    const aiModelSelect = document.getElementById('aiModelSelect'); // Was in sidebar, now in settings tab
+    const schoolIdInput = document.getElementById('schoolId'); // Was in sidebar, now in settings tab
     const apiKeyForm = document.getElementById('apiKeyForm');
     const openRouterApiKeyInput = document.getElementById('openRouterApiKey');
+    const addApiKeyButton = document.getElementById('addApiKeyButton'); // Ensure this ID is on the button in HTML
     const apiKeyCountElement = document.getElementById('apiKeyCount');
     const sessionCookieForm = document.getElementById('sessionCookieForm');
     const bemisSessionCookieInput = document.getElementById('bemisSessionCookie');
+    const saveSessionCookieButton = document.getElementById('saveSessionCookieButton'); // Ensure this ID is on the button in HTML
+    
+    // --- Response Area Wrappers ---
+    const aiResponseAreaWrapper = document.getElementById('aiResponseAreaWrapper');
+    const bemisResponseAreaWrapper = document.getElementById('bemisResponseAreaWrapper'); 
+    const settingsResponseAreaWrapper = document.getElementById('settingsResponseAreaWrapper'); // For API key messages
+    const sessionResponseAreaWrapper = document.getElementById('sessionResponseAreaWrapper'); // For session cookie messages
 
-    // --- Sidebar Elements ---
-    const sidebarToggle = document.getElementById('sidebarToggle');
-    const settingsSidebar = document.getElementById('settingsSidebar');
-    const sidebarOverlay = document.getElementById('sidebarOverlay');
-    const openIcon = document.getElementById('openIcon');
-    const closeIcon = document.getElementById('closeIcon');
-    const closeSidebarButton = document.getElementById('closeSidebarButton');
+    // --- Tab Elements ---
+    const aiExtractTabButton = document.getElementById('aiExtractTabButton');
+    const settingsTabButton = document.getElementById('settingsTabButton');
+    const aiExtractTabPane = document.getElementById('aiExtractTabPane');
+    const settingsTabPane = document.getElementById('settingsTabPane');
 
     // --- Dropzone ---
     const dropZoneLabel = document.getElementById('dropZoneLabel');
@@ -87,62 +87,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Sidebar Toggle Logic ---
-    function toggleSidebar(open) {
-        // console.log(`toggleSidebar called with open: ${open}`);
-        if (!settingsSidebar || !sidebarOverlay || !openIcon || !closeIcon) {
-            // console.error('Sidebar elements not found for toggleSidebar!');
-            return;
-        }
+    // --- Tab Switching Logic ---
+    function switchTab(activeButton, activePane) {
+        // Deactivate all buttons and hide all panes
+        [aiExtractTabButton, settingsTabButton].forEach(button => button.classList.remove('active'));
+        [aiExtractTabPane, settingsTabPane].forEach(pane => pane.classList.add('hidden'));
 
-        if (open) {
-            settingsSidebar.classList.remove('translate-x-full');
-            sidebarOverlay.classList.remove('hidden'); // Show overlay
-            openIcon.classList.add('hidden');
-            closeIcon.classList.remove('hidden');
-            // console.log('Sidebar opened. Overlay shown.');
-        } else {
-            settingsSidebar.classList.add('translate-x-full');
-            sidebarOverlay.classList.add('hidden'); // Hide overlay
-            openIcon.classList.remove('hidden');
-            closeIcon.classList.add('hidden');
-            // console.log('Sidebar closed. Overlay hidden.');
-        }
+        // Activate the selected button and show the selected pane
+        if (activeButton) activeButton.classList.add('active');
+        if (activePane) activePane.classList.remove('hidden');
     }
 
-    if (sidebarToggle) {
-        sidebarToggle.addEventListener('click', (event) => {
-            event.stopPropagation(); // Prevent click from bubbling, just in case
-            // console.log('sidebarToggle clicked.');
-            if (!settingsSidebar) {
-                // console.error('settingsSidebar not found on toggle click!');
-                return;
-            }
-            const isCurrentlyOpen = !settingsSidebar.classList.contains('translate-x-full');
-            // console.log(`Sidebar is currently open: ${isCurrentlyOpen}. Toggling to: ${!isCurrentlyOpen}`);
-            toggleSidebar(!isCurrentlyOpen);
-        });
-    } else {
-        // console.error('sidebarToggle element not found!');
-    }
-
-    if (closeSidebarButton) {
-        closeSidebarButton.addEventListener('click', (event) => {
-            event.stopPropagation();
-            // console.log('closeSidebarButton clicked.');
-            toggleSidebar(false);
-        });
-    } else {
-        // console.error('closeSidebarButton element not found!');
-    }
-
-    if (sidebarOverlay) {
-        sidebarOverlay.addEventListener('click', (event) => {
-            // console.log('sidebarOverlay clicked.');
-            toggleSidebar(false);
-        });
-    } else {
-        // console.error('sidebarOverlay element not found!');
+    if (aiExtractTabButton && settingsTabButton && aiExtractTabPane && settingsTabPane) {
+        aiExtractTabButton.addEventListener('click', () => switchTab(aiExtractTabButton, aiExtractTabPane));
+        settingsTabButton.addEventListener('click', () => switchTab(settingsTabButton, settingsTabPane));
+        
+        // Initialize with the AI Extract tab active (it's active by default in HTML)
+        // switchTab(aiExtractTabButton, aiExtractTabPane); // Already handled by HTML default
     }
 
 
@@ -256,7 +217,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (cameraModal) cameraModal.classList.add('hidden');
                 return;
             }
-            // Check for secure context (HTTPS or localhost)
             if (!window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
                 displayMessage(aiResponseAreaWrapper, 'Camera access requires a secure connection (HTTPS). Your current connection is not secure.', false);
                 if (cameraModal) cameraModal.classList.add('hidden');
@@ -297,22 +257,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (mobileScanButton && cameraModal) {
         mobileScanButton.addEventListener('click', (event) => {
-            event.stopPropagation(); // Good practice for buttons that open modals
-            // console.log('mobileScanButton clicked');
+            event.stopPropagation(); 
             cameraModal.classList.remove('hidden'); 
             startCamera(); 
         });
     }
     if (closeCameraModalButton && cameraModal) {
         closeCameraModalButton.addEventListener('click', () => { 
-            // console.log('closeCameraModalButton clicked');
             cameraModal.classList.add('hidden'); 
             stopCamera(); 
         });
     }
     if (captureButton && cameraFeed && photoCanvas && formImageUpload) {
         captureButton.addEventListener('click', () => {
-            // console.log('captureButton clicked');
             if (!stream || !cameraFeed.srcObject) { displayMessage(aiResponseAreaWrapper, "Camera not active.", false); return; }
             const videoElement = cameraFeed; const canvasElement = photoCanvas; const context = canvasElement.getContext('2d');
             canvasElement.width = videoElement.videoWidth; canvasElement.height = videoElement.videoHeight;
@@ -335,9 +292,9 @@ document.addEventListener('DOMContentLoaded', () => {
             event.preventDefault();
             if (bemisResponseAreaWrapper) bemisResponseAreaWrapper.innerHTML = ''; 
             
-            const schoolId = schoolIdInput ? schoolIdInput.value.trim() : '';
-            if (!schoolId) {
-                displayMessage(bemisResponseAreaWrapper, 'School ID is missing. Please set it in the sidebar.', false);
+            const schoolIdVal = schoolIdInput ? schoolIdInput.value.trim() : ''; // Renamed to avoid conflict
+            if (!schoolIdVal) {
+                displayMessage(bemisResponseAreaWrapper, 'School ID is missing. Please set it in the Settings & Model tab.', false);
                 return;
             }
             if (!currentStudentDataForSubmission) {
@@ -359,7 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const response = await fetch('/api/submit-student', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ schoolId, studentData: currentStudentDataForSubmission }),
+                    body: JSON.stringify({ schoolId: schoolIdVal, studentData: currentStudentDataForSubmission }),
                 });
                 const result = await response.json();
                 displayMessage(bemisResponseAreaWrapper, result.message, result.success); 
@@ -424,9 +381,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Initial fetch of API key count & ensure overlay is correctly hidden if sidebar isn't open
+    // Initial fetch of API key count
     if (typeof fetchApiKeyCount === "function") fetchApiKeyCount();
-    if (settingsSidebar && sidebarOverlay && settingsSidebar.classList.contains('translate-x-full')) {
-        sidebarOverlay.classList.add('hidden'); // Ensure overlay is hidden if sidebar starts closed
-    }
 });
