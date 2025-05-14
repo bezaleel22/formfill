@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BEMIS AI Form Extractor - Tailwind CSS</title>
+    <title>AutoFill - Intelligent Form Processing</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* Custom scrollbar for webkit browsers */
@@ -41,29 +41,179 @@
             color: #cbd5e1; /* slate-300 */
         }
         .tab-pane {
-            padding-top: 1rem; /* Add some space below the tabs */
+            padding-top: 1rem; 
         }
+
+        /* Landing Page Specific Styles */
+        html { scroll-behavior: smooth; }
+        body {
+            background-color: #0f172a; /* slate-900 as base */
+        }
+
+        #page-background {
+            background-color: #0f172a; /* slate-900 */
+            background-image:
+                linear-gradient(rgba(55, 65, 81, 0.1) 1px, transparent 1px), /* Fainter grid lines */
+                linear-gradient(90deg, rgba(55, 65, 81, 0.1) 1px, transparent 1px);
+            background-size: 40px 40px; /* Slightly larger grid */
+            overflow: hidden; 
+        }
+
+        #page-background::before,
+        #page-background::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(120px); 
+            opacity: 0.2; 
+            will-change: transform, opacity; /* Performance hint for animations */
+        }
+
+        #page-background::before { 
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, #3b82f6, transparent 60%); 
+            top: -15%;
+            left: -20%;
+            animation: pulse-glow-blue 12s infinite alternate ease-in-out;
+        }
+
+        #page-background::after { 
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, #8b5cf6, transparent 65%); 
+            bottom: -20%;
+            right: -15%;
+            animation: pulse-glow-purple 15s infinite alternate ease-in-out;
+            animation-delay: -3s; /* Offset animation */
+        }
+
+        @keyframes pulse-glow-blue {
+            0% { transform: scale(0.85) translate(-20px, -15px); opacity: 0.15; }
+            100% { transform: scale(1.15) translate(20px, 15px); opacity: 0.25; }
+        }
+        @keyframes pulse-glow-purple {
+            0% { transform: scale(0.9) translate(15px, 10px); opacity: 0.1; }
+            100% { transform: scale(1.1) translate(-15px, -10px); opacity: 0.2; }
+        }
+
+        .fade-in-section {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.8s cubic-bezier(0.645, 0.045, 0.355, 1), transform 0.8s cubic-bezier(0.645, 0.045, 0.355, 1);
+            transition-delay: 0.2s;
+        }
+        .fade-in-section.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .animated-artifact {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0.05; /* Very subtle */
+            will-change: transform;
+            pointer-events: none; /* So they don't interfere with clicks */
+        }
+        .artifact-1 { top: 15%; left: 10%; width: 100px; height: 100px; background-color: #3b82f6; animation: float 20s infinite ease-in-out alternate; }
+        .artifact-2 { top: 65%; left: 85%; width:150px; height:150px; background-color: #8b5cf6; animation: float 25s infinite ease-in-out alternate; animation-delay: -7s; }
+        .artifact-3 { top: 40%; left: 45%; width:70px; height:70px; background-color: #10b981; animation: float 18s infinite ease-in-out alternate; animation-delay: -3s; }
+
+
+        @keyframes float {
+            0% { transform: translateY(0px) translateX(0px) rotate(0deg) scale(1); }
+            50% { transform: translateY(-40px) translateX(30px) rotate(160deg) scale(1.2); }
+            100% { transform: translateY(10px) translateX(-10px) rotate(350deg) scale(0.9); }
+        }
+        
+        /* Ensure app section content is not overly affected by landing page styles */
+        #the-app-section .max-w-4xl { /* Target the app's container */
+            background-color: rgba(15, 23, 42, 0.6); /* slate-900 with some transparency */
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(55, 65, 81, 0.3); /* slate-700/30 */
+            border-radius: 0.75rem; /* rounded-xl */
+            padding: 2rem; /* p-8 */
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2), 0 10px 10px -5px rgba(0,0,0,0.1);
+        }
+
     </style>
 </head>
 
-<body class="bg-slate-900 text-slate-200 font-sans antialiased">
-    <div class="flex flex-col min-h-screen">
-        <!-- Sidebar and toggle button are removed -->
+<body class="text-slate-200 font-sans antialiased">
+    <div id="page-background" class="fixed inset-0 -z-10"></div>
 
-        <!-- Main Content -->
-        <main class="flex-1 p-4 md:p-8">
-            <div class="max-w-4xl mx-auto space-y-6">
-                <header class="mb-6 mt">
-                    <h1 class="text-3xl font-bold">AutoFill</h1>
+    <div class="relative z-0 flex flex-col min-h-screen">
+        <header id="landing-header" class="py-5 sticky top-0 z-20 bg-slate-900/70 backdrop-blur-md border-b border-slate-800">
+            <div class="container mx-auto px-6 flex justify-between items-center">
+                <h1 class="text-3xl font-bold text-blue-400">AutoFill</h1>
+                <nav>
+                    <button id="cta-nav-to-app" class="text-slate-300 hover:text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">Use App</button>
+                </nav>
+            </div>
+        </header>
+
+        <section id="hero" class="flex-grow flex items-center justify-center text-center px-4 py-20 md:py-32 relative overflow-hidden">
+            <div class="animated-artifact artifact-1"></div>
+            <div class="animated-artifact artifact-2"></div>
+            <div class="animated-artifact artifact-3"></div>
+            
+            <div class="relative z-10">
+                <h2 class="text-5xl sm:text-6xl md:text-7xl font-extrabold text-white mb-6 leading-tight">
+                    AutoFill: <span class="text-blue-400">AI Form Data Entry</span>
+                </h2>
+                <p class="text-lg sm:text-xl md:text-2xl text-slate-300 mb-10 max-w-3xl mx-auto">
+                    Instantly extract data from BEMIS school forms using AI. Reduce manual work, eliminate errors, and streamline submissions.
+                </p>
+                <button id="cta-hero-to-app" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-10 rounded-lg text-lg shadow-lg transform hover:scale-105 transition-all duration-300">
+                    Get Started Now
+                </button>
+            </div>
+        </section>
+
+        <section id="features" class="py-16 md:py-24 bg-slate-800/30 backdrop-blur-sm fade-in-section">
+            <div class="container mx-auto px-6 text-center">
+                <h3 class="text-4xl font-bold text-white mb-16">Why Choose AutoFill?</h3>
+                <div class="grid md:grid-cols-3 gap-8">
+                    <div class="p-8 bg-slate-700/50 rounded-xl shadow-xl border border-slate-600/50">
+                        <div class="text-blue-400 mb-4">
+                            <svg class="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                        </div>
+                        <h4 class="text-2xl font-semibold text-slate-100 mb-3">AI-Powered Extraction</h4>
+                        <p class="text-slate-400">Leverage advanced AI to instantly digitize data from scanned or photographed BEMIS forms.</p>
+                    </div>
+                    <div class="p-8 bg-slate-700/50 rounded-xl shadow-xl border border-slate-600/50">
+                         <div class="text-purple-400 mb-4">
+                            <svg class="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        </div>
+                        <h4 class="text-2xl font-semibold text-slate-100 mb-3">Seamless BEMIS Submission</h4>
+                        <p class="text-slate-400">Review extracted data and submit directly to the BEMIS portal with built-in validation.</p>
+                    </div>
+                    <div class="p-8 bg-slate-700/50 rounded-xl shadow-xl border border-slate-600/50">
+                        <div class="text-emerald-400 mb-4">
+                           <svg class="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        </div>
+                        <h4 class="text-2xl font-semibold text-slate-100 mb-3">Save Time & Reduce Errors</h4>
+                        <p class="text-slate-400">Drastically cut down on manual data entry time and improve the accuracy of your records.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="the-app-section" class="py-16 md:py-24">
+            <div class="max-w-4xl mx-auto"> <!-- This div will get the special styling -->
+                <!-- App's own header, previously in <main> -->
+                <header class="mb-6 text-center"> <!-- Centered the app title -->
+                    <h2 class="text-3xl font-bold text-blue-400">Use AutoFill Now</h2>
                 </header>
 
-                <!-- Upload Section with Tabs -->
-                <section id="aiExtractionSection" class="bg-slate-800 p-6 rounded-lg shadow-md relative overflow-hidden">
+                <!-- The rest of the app (section#aiExtractionSection) goes here -->
+                <section id="aiExtractionSection" class="bg-slate-800 p-6 rounded-lg shadow-md relative overflow-hidden"> <!-- Original app section classes -->
                     <div id="extractionProgressBarContainer" class="h-1 w-full absolute top-0 left-0 bg-slate-700/50 rounded-t-lg overflow-hidden hidden">
                         <div id="extractionProgressBar" class="h-full bg-blue-500 w-1/3 animate-slide"></div>
                     </div>
                     
                     <div class="flex flex-col md:flex-row md:justify-between md:items-start mb-4 pt-2">
+                        <h3 class="text-xl font-semibold text-slate-300">1. Upload Form Image</h3> <!-- Changed from h2 to h3 -->
                         <form id="studentForm" class="w-full md:w-auto">
                             <div id="inlineReviewSubmitControls" class="hidden opacity-0 transform -translate-y-2 transition-all duration-300 ease-in-out md:ml-4 mt-2 md:mt-0 flex-shrink-0 space-y-1 w-full md:w-auto" style="max-width: 360px;">
                                 <label for="studentFullName" class="block text-xs font-medium text-slate-400">Review Student Full Name:</label>
@@ -129,7 +279,7 @@
                                 </div>
                             </section>
                             
-                            <section class="md:col-span-1 space-y-3"> <!-- Each section takes one column -->
+                            <section class="md:col-span-1 space-y-3"> 
                                 <h3 class="text-lg font-semibold text-slate-300">OpenRouter API Key</h3>
                                 <form id="apiKeyForm" class="space-y-2">
                                     <div>
@@ -142,7 +292,7 @@
                                 <div id="settingsResponseAreaWrapper" class="mt-2"></div>
                             </section>
                             
-                            <section class="md:col-span-1 space-y-3"> <!-- Each section takes one column -->
+                            <section class="md:col-span-1 space-y-3"> 
                                 <h3 class="text-lg font-semibold text-slate-300">BEMIS Session Cookie</h3>
                                 <form id="sessionCookieForm" class="space-y-2">
                                     <div>
@@ -155,12 +305,16 @@
                             </section>
                         </div>
                     </div>
-                </section>
-            </div>
-        </main>
+                </section> <!-- End of #aiExtractionSection (the app's main component) -->
+            </div> <!-- End of .max-w-4xl for app section -->
+        </section> <!-- End of #the-app-section -->
+
+        <footer id="landing-footer" class="py-10 text-center border-t border-slate-800 fade-in-section">
+            <p class="text-slate-500">&copy; 2025 AutoFill. All rights reserved.</p>
+        </footer>
     </div>
 
-    <!-- Full-screen Camera Modal -->
+    <!-- Full-screen Camera Modal (remains at the end of body) -->
     <div id="cameraModal" class="hidden fixed inset-0 bg-black z-50 flex flex-col items-center justify-center">
         <video id="cameraFeed" autoplay playsinline class="w-full h-full object-cover"></video>
         <canvas id="photoCanvas" class="hidden"></canvas>

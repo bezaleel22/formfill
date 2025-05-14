@@ -1,20 +1,26 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // --- Main Form Elements ---
+    // --- Landing Page Elements ---
+    const ctaHeroToAppButton = document.getElementById('cta-hero-to-app');
+    const ctaNavToAppButton = document.getElementById('cta-nav-to-app');
+    const appSection = document.getElementById('the-app-section');
+    const fadeInSections = document.querySelectorAll('.fade-in-section');
+
+    // --- Main Form Elements (App) ---
     const studentForm = document.getElementById('studentForm'); 
     const aiFormExtractForm = document.getElementById('aiFormExtractForm');
     const formImageUpload = document.getElementById('formImageUpload');
     const imagePreviewContainer = document.getElementById('imagePreviewContainer');
     const imagePreview = document.getElementById('imagePreview');
     
-    // --- UI Control Elements ---
+    // --- UI Control Elements (App) ---
     const extractionProgressBarContainer = document.getElementById('extractionProgressBarContainer');
     const inlineReviewSubmitControls = document.getElementById('inlineReviewSubmitControls'); 
     const submitBemisButton = document.getElementById('submitBemisButton'); 
 
-    // --- Name Review (within inlineReviewSubmitControls) ---
+    // --- Name Review (within inlineReviewSubmitControls - App) ---
     const studentFullNameInput = document.getElementById('studentFullName');
 
-    // --- Camera Elements ---
+    // --- Camera Elements (App) ---
     const mobileScanButton = document.getElementById('mobileScanButton');
     const cameraModal = document.getElementById('cameraModal');
     const cameraFeed = document.getElementById('cameraFeed');
@@ -22,37 +28,65 @@ document.addEventListener('DOMContentLoaded', () => {
     const captureButton = document.getElementById('captureButton');
     const closeCameraModalButton = document.getElementById('closeCameraModalButton');
 
-    // --- Settings Elements (now in a tab) ---
-    const aiModelSelect = document.getElementById('aiModelSelect'); // Was in sidebar, now in settings tab
-    const schoolIdInput = document.getElementById('schoolId'); // Was in sidebar, now in settings tab
+    // --- Settings Elements (App - in a tab) ---
+    const aiModelSelect = document.getElementById('aiModelSelect'); 
+    const schoolIdInput = document.getElementById('schoolId'); 
     const apiKeyForm = document.getElementById('apiKeyForm');
     const openRouterApiKeyInput = document.getElementById('openRouterApiKey');
-    const addApiKeyButton = document.getElementById('addApiKeyButton'); // Ensure this ID is on the button in HTML
+    const addApiKeyButton = document.getElementById('addApiKeyButton'); 
     const apiKeyCountElement = document.getElementById('apiKeyCount');
     const sessionCookieForm = document.getElementById('sessionCookieForm');
     const bemisSessionCookieInput = document.getElementById('bemisSessionCookie');
-    const saveSessionCookieButton = document.getElementById('saveSessionCookieButton'); // Ensure this ID is on the button in HTML
+    const saveSessionCookieButton = document.getElementById('saveSessionCookieButton'); 
     
-    // --- Response Area Wrappers ---
+    // --- Response Area Wrappers (App) ---
     const aiResponseAreaWrapper = document.getElementById('aiResponseAreaWrapper');
     const bemisResponseAreaWrapper = document.getElementById('bemisResponseAreaWrapper'); 
-    const settingsResponseAreaWrapper = document.getElementById('settingsResponseAreaWrapper'); // For API key messages
-    const sessionResponseAreaWrapper = document.getElementById('sessionResponseAreaWrapper'); // For session cookie messages
+    const settingsResponseAreaWrapper = document.getElementById('settingsResponseAreaWrapper'); 
+    const sessionResponseAreaWrapper = document.getElementById('sessionResponseAreaWrapper'); 
 
-    // --- Tab Elements ---
+    // --- Tab Elements (App) ---
     const aiExtractTabButton = document.getElementById('aiExtractTabButton');
     const settingsTabButton = document.getElementById('settingsTabButton');
     const aiExtractTabPane = document.getElementById('aiExtractTabPane');
     const settingsTabPane = document.getElementById('settingsTabPane');
 
-    // --- Dropzone ---
+    // --- Dropzone (App) ---
     const dropZoneLabel = document.getElementById('dropZoneLabel');
 
     let stream = null;
     let currentStudentDataForSubmission = null;
     let isExtracting = false;
 
-    // --- Utility to display messages ---
+    // --- Landing Page Interactivity ---
+    function scrollToAppSection() {
+        if (appSection) {
+            appSection.scrollIntoView({ behavior: 'smooth' });
+        }
+    }
+    if (ctaHeroToAppButton) {
+        ctaHeroToAppButton.addEventListener('click', scrollToAppSection);
+    }
+    if (ctaNavToAppButton) {
+        ctaNavToAppButton.addEventListener('click', scrollToAppSection);
+    }
+
+    // Intersection Observer for fade-in sections
+    const sectionObserver = new IntersectionObserver((entries, observer) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+                observer.unobserve(entry.target); // Optional: stop observing after animation
+            }
+        });
+    }, { threshold: 0.1 }); // Trigger when 10% of the section is visible
+
+    fadeInSections.forEach(section => {
+        sectionObserver.observe(section);
+    });
+
+
+    // --- Utility to display messages (App) ---
     function displayMessage(areaWrapperElement, message, isSuccess, jsonData = null) {
         if (!areaWrapperElement) return;
         areaWrapperElement.innerHTML = ''; 
@@ -87,13 +121,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Tab Switching Logic ---
+    // --- Tab Switching Logic (App) ---
     function switchTab(activeButton, activePane) {
-        // Deactivate all buttons and hide all panes
+        if (!aiExtractTabButton || !settingsTabButton || !aiExtractTabPane || !settingsTabPane) return;
         [aiExtractTabButton, settingsTabButton].forEach(button => button.classList.remove('active'));
         [aiExtractTabPane, settingsTabPane].forEach(pane => pane.classList.add('hidden'));
 
-        // Activate the selected button and show the selected pane
         if (activeButton) activeButton.classList.add('active');
         if (activePane) activePane.classList.remove('hidden');
     }
@@ -101,17 +134,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (aiExtractTabButton && settingsTabButton && aiExtractTabPane && settingsTabPane) {
         aiExtractTabButton.addEventListener('click', () => switchTab(aiExtractTabButton, aiExtractTabPane));
         settingsTabButton.addEventListener('click', () => switchTab(settingsTabButton, settingsTabPane));
-        
-        // Initialize with the AI Extract tab active (it's active by default in HTML)
-        // switchTab(aiExtractTabButton, aiExtractTabPane); // Already handled by HTML default
     }
 
 
-    // --- Dropzone Logic ---
+    // --- Dropzone Logic (App) ---
     if (dropZoneLabel && formImageUpload) {
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
             dropZoneLabel.addEventListener(eventName, preventDefaults, false);
-            document.body.addEventListener(eventName, preventDefaults, false);
+            document.body.addEventListener(eventName, preventDefaults, false); // For broader drop coverage
         });
         function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
         ['dragenter', 'dragover'].forEach(eventName => dropZoneLabel.addEventListener(eventName, () => dropZoneLabel.classList.add('dragover'), false));
@@ -125,7 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, false);
     }
     
-    // --- AI Form Data Extraction (triggered on file change) ---
+    // --- AI Form Data Extraction (App - triggered on file change) ---
     async function handleAiExtraction() {
         if (isExtracting) return;
         isExtracting = true;
@@ -188,7 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Image Preview & Trigger Extraction ---
+    // --- Image Preview & Trigger Extraction (App) ---
     if (formImageUpload) {
         formImageUpload.addEventListener('change', function(event) {
             const file = event.target.files[0];
@@ -209,7 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // --- Camera Modal Logic ---
+    // --- Camera Modal Logic (App) ---
     async function startCamera() { 
         try {
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -286,13 +316,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- BEMIS Submission (using studentForm, now in inline controls) ---
+    // --- BEMIS Submission (App - using studentForm, now in inline controls) ---
     if (studentForm && submitBemisButton) { 
         studentForm.addEventListener('submit', async function(event) {
             event.preventDefault();
             if (bemisResponseAreaWrapper) bemisResponseAreaWrapper.innerHTML = ''; 
             
-            const schoolIdVal = schoolIdInput ? schoolIdInput.value.trim() : ''; // Renamed to avoid conflict
+            const schoolIdVal = schoolIdInput ? schoolIdInput.value.trim() : '';
             if (!schoolIdVal) {
                 displayMessage(bemisResponseAreaWrapper, 'School ID is missing. Please set it in the Settings & Model tab.', false);
                 return;
@@ -335,7 +365,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- Settings: API Key Management ---
+    // --- Settings: API Key Management (App) ---
     async function fetchApiKeyCount() { 
         if (!apiKeyCountElement) return;
         try {
@@ -363,7 +393,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- Settings: BEMIS Session Cookie Management ---
+    // --- Settings: BEMIS Session Cookie Management (App) ---
     if (sessionCookieForm && bemisSessionCookieInput && saveSessionCookieButton) { 
         sessionCookieForm.addEventListener('submit', async function(event) {
             event.preventDefault();
@@ -381,6 +411,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Initial fetch of API key count
+    // Initial fetch of API key count (App)
     if (typeof fetchApiKeyCount === "function") fetchApiKeyCount();
 });
