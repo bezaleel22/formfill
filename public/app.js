@@ -1,64 +1,213 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const studentForm = document.getElementById('studentForm');
-    const responseArea = document.getElementById('responseArea');
+    // --- Main Form Elements ---
+    const studentForm = document.getElementById('studentForm'); // Now part of inlineReviewSubmitControls
     const aiFormExtractForm = document.getElementById('aiFormExtractForm');
-    const aiResponseArea = document.getElementById('aiResponseArea');
     const formImageUpload = document.getElementById('formImageUpload');
     const imagePreviewContainer = document.getElementById('imagePreviewContainer');
     const imagePreview = document.getElementById('imagePreview');
-    const scanButton = document.getElementById('scanButton');
+    const aiModelSelect = document.getElementById('aiModelSelect');
+    const schoolIdInput = document.getElementById('schoolId'); // Now in sidebar
+
+    // --- Response Area Wrappers ---
+    const aiResponseAreaWrapper = document.getElementById('aiResponseAreaWrapper');
+    const bemisResponseAreaWrapper = document.getElementById('bemisResponseAreaWrapper'); // NEW for BEMIS submission results
+    const settingsResponseAreaWrapper = document.getElementById('settingsResponseAreaWrapper');
+    const sessionResponseAreaWrapper = document.getElementById('sessionResponseAreaWrapper');
+
+    // --- UI Control Elements ---
+    const extractionProgressBarContainer = document.getElementById('extractionProgressBarContainer');
+    const inlineReviewSubmitControls = document.getElementById('inlineReviewSubmitControls'); // NEW
+    const submitBemisButton = document.getElementById('submitBemisButton'); // Icon button
+    // const submitSpinner = document.getElementById('submitSpinner'); // Spinner for BEMIS submit - can be added back to button if needed
+
+    // --- Name Review (within inlineReviewSubmitControls) ---
+    const studentFullNameInput = document.getElementById('studentFullName');
+
+    // --- Camera Elements ---
+    const mobileScanButton = document.getElementById('mobileScanButton');
     const cameraModal = document.getElementById('cameraModal');
     const cameraFeed = document.getElementById('cameraFeed');
     const photoCanvas = document.getElementById('photoCanvas');
     const captureButton = document.getElementById('captureButton');
-    const closeDialogButtons = document.querySelectorAll('.close-modal-button');
-    const aiModelSelect = document.getElementById('aiModelSelect'); // Get the model select element
+    const closeCameraModalButton = document.getElementById('closeCameraModalButton');
 
-    // New elements for name review
-    const reviewStudentNameSection = document.getElementById('reviewStudentNameSection');
-    const studentSurnameInput = document.getElementById('studentSurname');
-    const studentFirstNameInput = document.getElementById('studentFirstName');
-    const studentOtherNameInput = document.getElementById('studentOtherName');
-
-    // Settings Section Elements
+    // --- Settings Section Elements ---
     const apiKeyForm = document.getElementById('apiKeyForm');
     const openRouterApiKeyInput = document.getElementById('openRouterApiKey');
     const apiKeyCountElement = document.getElementById('apiKeyCount');
-    const settingsResponseArea = document.getElementById('settingsResponseArea');
-
-    // New elements for BEMIS Session Cookie
     const sessionCookieForm = document.getElementById('sessionCookieForm');
     const bemisSessionCookieInput = document.getElementById('bemisSessionCookie');
-    const saveSessionCookieButton = document.getElementById('saveSessionCookieButton');
-    const sessionResponseArea = document.getElementById('sessionResponseArea');
+
+    // --- Sidebar Elements ---
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const settingsSidebar = document.getElementById('settingsSidebar');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+    const openIcon = document.getElementById('openIcon');
+    const closeIcon = document.getElementById('closeIcon');
+    const closeSidebarButton = document.getElementById('closeSidebarButton');
+
+    // --- Dropzone ---
+    const dropZoneLabel = document.getElementById('dropZoneLabel');
 
     let stream = null;
-    let currentStudentDataForSubmission = null; // To store the full AI extracted data
+    let currentStudentDataForSubmission = null;
+    let isExtracting = false;
 
     // --- Utility to display messages ---
-    function displayMessage(areaElement, message, isSuccess, jsonData = null) {
-        if (!areaElement) return; // Guard against null areaElement
-        areaElement.innerHTML = ''; 
-        const messageP = document.createElement('p');
-        messageP.textContent = message;
-        areaElement.appendChild(messageP);
+    function displayMessage(areaWrapperElement, message, isSuccess, jsonData = null) {
+        if (!areaWrapperElement) return;
+        areaWrapperElement.innerHTML = ''; 
 
-        if (jsonData && areaElement.id === 'aiResponseArea') { 
-            console.log("AI Extracted Data (for diagnostics):", JSON.stringify(jsonData, null, 2));
+        const alertDiv = document.createElement('div');
+        alertDiv.classList.add('alert', 'flex', 'items-start', 'shadow-lg'); 
+
+        let iconSvg = '';
+        let statusText = '';
+
+        if (isSuccess) {
+            alertDiv.classList.add('alert-success');
+            iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" class="alert-icon stroke-current shrink-0 h-5 w-5" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`;
+            statusText = 'Success';
+        } else {
+            alertDiv.classList.add('alert-error');
+            iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" class="alert-icon stroke-current shrink-0 h-5 w-5" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`;
+            statusText = 'Error';
         }
         
-        areaElement.className = isSuccess ? 'success' : 'error';
-        if (!(areaElement.id === 'aiResponseArea' && isSuccess && jsonData)) { // Keep AI success message with data visible longer
-             setTimeout(() => {
-                if (areaElement) {
-                    areaElement.className = 'hidden';
-                    areaElement.innerHTML = '';
-                }
+        alertDiv.innerHTML = `${iconSvg} <div class="flex flex-col"><span>${statusText}</span><span class="text-xs">${message}</span></div>`;
+        areaWrapperElement.appendChild(alertDiv);
+        areaWrapperElement.classList.remove('hidden');
+
+        const autoHide = !(areaWrapperElement.id === 'aiResponseAreaWrapper' && isSuccess && jsonData); 
+        if (autoHide) {
+            setTimeout(() => {
+                alertDiv.style.opacity = '0';
+                alertDiv.style.transition = 'opacity 0.5s ease-out';
+                setTimeout(() => alertDiv.remove(), 500);
             }, 7000);
         }
     }
 
-    // --- Image Preview ---
+    // --- Sidebar Toggle Logic ---
+    function toggleSidebar(open) {
+        if (!settingsSidebar || !sidebarOverlay || !openIcon || !closeIcon) {
+            return;
+        }
+        if (open) {
+            settingsSidebar.classList.remove('translate-x-full');
+            sidebarOverlay.classList.remove('hidden');
+            openIcon.classList.add('hidden');
+            closeIcon.classList.remove('hidden');
+        } else {
+            settingsSidebar.classList.add('translate-x-full');
+            sidebarOverlay.classList.add('hidden');
+            openIcon.classList.remove('hidden');
+            closeIcon.classList.add('hidden');
+        }
+    }
+
+    if (sidebarToggle) {
+        sidebarToggle.addEventListener('click', () => {
+            const isCurrentlyOpen = !settingsSidebar.classList.contains('translate-x-full');
+            toggleSidebar(!isCurrentlyOpen);
+        });
+    }
+
+    if (closeSidebarButton) {
+        closeSidebarButton.addEventListener('click', () => {
+            toggleSidebar(false);
+        });
+    }
+
+    if (sidebarOverlay) {
+        sidebarOverlay.addEventListener('click', () => {
+            toggleSidebar(false);
+        });
+    }
+
+
+    // --- Dropzone Logic ---
+    if (dropZoneLabel && formImageUpload) {
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZoneLabel.addEventListener(eventName, preventDefaults, false);
+            document.body.addEventListener(eventName, preventDefaults, false);
+        });
+        function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
+        ['dragenter', 'dragover'].forEach(eventName => dropZoneLabel.addEventListener(eventName, () => dropZoneLabel.classList.add('dragover'), false));
+        ['dragleave', 'drop'].forEach(eventName => dropZoneLabel.addEventListener(eventName, () => dropZoneLabel.classList.remove('dragover'), false));
+        dropZoneLabel.addEventListener('drop', (e) => {
+            const files = e.dataTransfer.files;
+            if (files && files.length > 0) {
+                formImageUpload.files = files;
+                formImageUpload.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }, false);
+    }
+    
+    // --- AI Form Data Extraction (triggered on file change) ---
+    async function handleAiExtraction() {
+        if (isExtracting) return;
+        isExtracting = true;
+
+        if (aiResponseAreaWrapper) aiResponseAreaWrapper.innerHTML = '';
+        if (bemisResponseAreaWrapper) bemisResponseAreaWrapper.innerHTML = ''; 
+        
+        if (inlineReviewSubmitControls) {
+            inlineReviewSubmitControls.classList.add('hidden', 'opacity-0', '-translate-y-2');
+        }
+        currentStudentDataForSubmission = null;
+
+        const formData = new FormData();
+        const imageFile = formImageUpload.files[0];
+
+        if (!imageFile || (imageFile instanceof File && imageFile.size === 0)) {
+            displayMessage(aiResponseAreaWrapper, 'Please select an image or use the camera.', false);
+            isExtracting = false;
+            return;
+        }
+        formData.append('formImage', imageFile);
+        formData.append('aiModel', aiModelSelect ? aiModelSelect.value : 'qwen/qwen2.5-vl-72b-instruct:free');
+        
+        if (extractionProgressBarContainer) extractionProgressBarContainer.classList.remove('hidden');
+
+        try {
+            const response = await fetch('/api/extract-form-data', {
+                method: 'POST',
+                body: formData, 
+            });
+            const result = await response.json();
+
+            if (result.success && result.studentData) { 
+                currentStudentDataForSubmission = result.studentData;
+                const surname = result.studentData['student.Surname'] || '';
+                const firstname = result.studentData['student.FirstName'] || '';
+                const otherName = result.studentData['student.OtherName'] || '';
+                if (studentFullNameInput) {
+                    studentFullNameInput.value = `${surname} ${firstname} ${otherName}`.trim().replace(/\s+/g, ' ');
+                }
+                displayMessage(aiResponseAreaWrapper, result.message || 'Data extracted. Review name and submit.', true, result.studentData);
+                
+                if (inlineReviewSubmitControls) {
+                    inlineReviewSubmitControls.classList.remove('hidden');
+                    setTimeout(() => { 
+                        inlineReviewSubmitControls.classList.remove('opacity-0', '-translate-y-2');
+                        inlineReviewSubmitControls.classList.add('opacity-100', 'translate-y-0');
+                    }, 50); 
+                }
+            } else { 
+                displayMessage(aiResponseAreaWrapper, result.message || 'Failed to extract data.', false, result.errorDetails || null);
+                if (inlineReviewSubmitControls) inlineReviewSubmitControls.classList.add('hidden', 'opacity-0', '-translate-y-2');
+            }
+        } catch (error) {
+            displayMessage(aiResponseAreaWrapper, `Client-side error: ${error.message}`, false);
+            if (inlineReviewSubmitControls) inlineReviewSubmitControls.classList.add('hidden', 'opacity-0', '-translate-y-2');
+        } finally {
+            if (extractionProgressBarContainer) extractionProgressBarContainer.classList.add('hidden');
+            isExtracting = false;
+        }
+    }
+
+    // --- Image Preview & Trigger Extraction ---
     if (formImageUpload) {
         formImageUpload.addEventListener('change', function(event) {
             const file = event.target.files[0];
@@ -71,329 +220,150 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
                 reader.readAsDataURL(file);
+                handleAiExtraction(); 
             } else {
                 if (imagePreviewContainer) imagePreviewContainer.classList.add('hidden');
+                if (inlineReviewSubmitControls) inlineReviewSubmitControls.classList.add('hidden', 'opacity-0', '-translate-y-2');
             }
         });
     }
     
     // --- Camera Modal Logic ---
-    async function startCamera() {
+    async function startCamera() { 
         try {
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { 
-                        facingMode: 'environment',
-                        width: { ideal: 1920 }, 
-                        height: { ideal: 1080 }
-                    } 
-                });
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } });
                 if (cameraFeed) cameraFeed.srcObject = stream;
-                if (cameraModal) cameraModal.showModal();
-            } else {
-                displayMessage(aiResponseArea, 'getUserMedia not supported on this browser.', false);
-            }
+            } else { displayMessage(aiResponseAreaWrapper, 'Camera access (getUserMedia) is not supported.', false); }
         } catch (err) {
-            console.error("Error accessing camera:", err);
             let message = 'Error accessing camera. ';
-            if (err.name === "NotAllowedError") {
-                message += "Permission denied. Please allow camera access.";
-            } else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
-                message += "No camera found. Ensure a camera is connected and enabled.";
-            } else if (err.name === "NotReadableError" || err.name === "TrackStartError") {
-                message += "Camera is already in use or cannot be started.";
-            } else {
-                message += err.message;
-            }
-            displayMessage(aiResponseArea, message, false);
+            if (err.name === "NotAllowedError") message += "Permission denied.";
+            else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") message += "No camera found.";
+            else if (err.name === "NotReadableError" || err.name === "TrackStartError") message += "Camera in use or cannot start.";
+            else message += err.message;
+            displayMessage(aiResponseAreaWrapper, message, false);
+            if (cameraModal) cameraModal.classList.add('hidden');
         }
     }
-
-    function stopCamera() {
-        if (stream) {
-            stream.getTracks().forEach(track => track.stop());
-            stream = null;
-        }
+    function stopCamera() { 
+        if (stream) { stream.getTracks().forEach(track => track.stop()); stream = null; }
         if (cameraFeed) cameraFeed.srcObject = null;
     }
-
-    if (scanButton) {
-        scanButton.addEventListener('click', startCamera);
-    }
-
-    if (captureButton && cameraFeed && photoCanvas && formImageUpload && imagePreview && imagePreviewContainer) {
+    if (mobileScanButton && cameraModal) mobileScanButton.addEventListener('click', () => { cameraModal.classList.remove('hidden'); startCamera(); });
+    if (closeCameraModalButton && cameraModal) closeCameraModalButton.addEventListener('click', () => { cameraModal.classList.add('hidden'); stopCamera(); });
+    if (captureButton && cameraFeed && photoCanvas && formImageUpload) {
         captureButton.addEventListener('click', () => {
-            const videoElement = cameraFeed;
-            const canvasElement = photoCanvas;
-            const context = canvasElement.getContext('2d');
-            canvasElement.width = videoElement.videoWidth;
-            canvasElement.height = videoElement.videoHeight;
+            if (!stream || !cameraFeed.srcObject) { displayMessage(aiResponseAreaWrapper, "Camera not active.", false); return; }
+            const videoElement = cameraFeed; const canvasElement = photoCanvas; const context = canvasElement.getContext('2d');
+            canvasElement.width = videoElement.videoWidth; canvasElement.height = videoElement.videoHeight;
             context.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
             canvasElement.toBlob(blob => {
                 if (blob) {
                     const file = new File([blob], "capture.png", { type: "image/png" });
-                    const dataTransfer = new DataTransfer();
-                    dataTransfer.items.add(file);
+                    const dataTransfer = new DataTransfer(); dataTransfer.items.add(file);
                     formImageUpload.files = dataTransfer.files;
-                    const changeEvent = new Event('change');
-                    formImageUpload.dispatchEvent(changeEvent);
+                    formImageUpload.dispatchEvent(new Event('change', { bubbles: true }));
                 }
             }, 'image/png');
-            if (cameraModal) cameraModal.close();
-            stopCamera();
+            if (cameraModal) cameraModal.classList.add('hidden'); stopCamera();
         });
     }
 
-    if (closeDialogButtons) {
-        closeDialogButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                if (cameraModal && cameraModal.open) {
-                    cameraModal.close();
-                }
-            });
-        });
-    }
-    if (cameraModal) {
-        cameraModal.addEventListener('close', stopCamera);
-    }
-
-
-    // --- AI Form Data Extraction ---
-    if (aiFormExtractForm) {
-        aiFormExtractForm.addEventListener('submit', async function(event) {
-            event.preventDefault();
-            if (aiResponseArea) {
-                aiResponseArea.className = 'hidden';
-                aiResponseArea.innerHTML = ''; 
-            }
-            if (reviewStudentNameSection) reviewStudentNameSection.classList.add('hidden');
-            currentStudentDataForSubmission = null; // Clear previous data
-
-            const formData = new FormData(); // Create a new FormData object
-            const imageFile = formImageUpload.files[0]; // Get the image file
-
-            if (!imageFile || (imageFile instanceof File && imageFile.size === 0)) {
-                displayMessage(aiResponseArea, 'Please select an image or use the camera.', false);
-                return;
-            }
-            formData.append('formImage', imageFile); // Append the image file
-
-            if (aiModelSelect) {
-                formData.append('aiModel', aiModelSelect.value); // Append selected AI model
-            } else {
-                formData.append('aiModel', 'qwen/qwen2.5-vl-72b-instruct:free'); // Default if somehow not found
-            }
-            
-            const extractButton = document.getElementById('extractDataButton');
-            if (extractButton) extractButton.setAttribute('aria-busy', 'true');
-
-            try {
-                // Note: The backend endpoint was previously /api/extract-student-data, 
-                // the existing code uses /api/extract-form-data. I'll stick to /api/extract-form-data
-                // as per the existing code block. If this needs to change, let me know.
-                const response = await fetch('/api/extract-form-data', {
-                    method: 'POST',
-                    body: formData, 
-                });
-                const result = await response.json();
-
-                if (result.studentData) { 
-                    currentStudentDataForSubmission = result.studentData; // Store full data
-                    
-                    if (studentSurnameInput) studentSurnameInput.value = result.studentData['student.Surname'] || '';
-                    if (studentFirstNameInput) studentFirstNameInput.value = result.studentData['student.FirstName'] || '';
-                    if (studentOtherNameInput) studentOtherNameInput.value = result.studentData['student.OtherName'] || '';
-                    
-                    if (reviewStudentNameSection) reviewStudentNameSection.classList.remove('hidden');
-                    
-                    displayMessage(aiResponseArea, result.message || 'Data extracted. Please review student name below.', result.success, result.studentData);
-                } else { 
-                    displayMessage(aiResponseArea, result.message || 'Failed to extract data.', false, result.errorDetails ? result.errorDetails : null);
-                }
-            } catch (error) {
-                console.error('Error extracting data:', error);
-                displayMessage(aiResponseArea, `Client-side error: ${error.message}`, false);
-            } finally {
-                if (extractButton) extractButton.removeAttribute('aria-busy');
-            }
-        });
-    }
-
-    // --- BEMIS Manual Submission ---
-    if (studentForm) {
+    // --- BEMIS Submission (using studentForm, now in inline controls) ---
+    if (studentForm && submitBemisButton) { 
         studentForm.addEventListener('submit', async function(event) {
             event.preventDefault();
-            if (responseArea) responseArea.className = 'hidden';
-
-            const schoolIdElement = document.getElementById('schoolId');
-            const schoolId = schoolIdElement ? schoolIdElement.value : '';
+            if (bemisResponseAreaWrapper) bemisResponseAreaWrapper.innerHTML = ''; 
             
+            const schoolId = schoolIdInput ? schoolIdInput.value.trim() : '';
+            if (!schoolId) {
+                displayMessage(bemisResponseAreaWrapper, 'School ID is missing. Please set it in the sidebar.', false);
+                return;
+            }
             if (!currentStudentDataForSubmission) {
-                displayMessage(responseArea, 'No student data extracted or loaded. Please extract data first.', false);
+                displayMessage(bemisResponseAreaWrapper, 'No student data. Extract first.', false);
                 return;
             }
-
-            if (studentSurnameInput) currentStudentDataForSubmission['student.Surname'] = studentSurnameInput.value;
-            if (studentFirstNameInput) currentStudentDataForSubmission['student.FirstName'] = studentFirstNameInput.value;
-            if (studentOtherNameInput) currentStudentDataForSubmission['student.OtherName'] = studentOtherNameInput.value;
+            if (studentFullNameInput && studentFullNameInput.value.trim() !== '') {
+                const nameParts = studentFullNameInput.value.trim().split(/\s+/);
+                currentStudentDataForSubmission['student.Surname'] = nameParts[0] || '';
+                currentStudentDataForSubmission['student.FirstName'] = nameParts[1] || '';
+                currentStudentDataForSubmission['student.OtherName'] = nameParts.slice(2).join(' ') || '';
+            }
             
-            const submitBemisButton = document.getElementById('submitBemisButton');
-            if (submitBemisButton) submitBemisButton.setAttribute('aria-busy', 'true');
-
-            // Fetch current API key for BEMIS submission (as it's needed by the /api/submit-student endpoint)
-            let apiKeyForSubmission = '';
-            try {
-                const apiKeyRes = await fetch('/api/settings/apikeys/current'); // Assuming this endpoint exists
-                if (apiKeyRes.ok) {
-                    const apiKeyData = await apiKeyRes.json();
-                    if (apiKeyData.success && apiKeyData.apiKey) {
-                        apiKeyForSubmission = apiKeyData.apiKey;
-                    } else {
-                        throw new Error(apiKeyData.message || "API Key not found or error in response.");
-                    }
-                } else {
-                    const errorText = await apiKeyRes.text();
-                    throw new Error(`Failed to fetch API key: ${apiKeyRes.status} ${errorText}`);
-                }
-            } catch (e) {
-                console.error("Error fetching API key for BEMIS submission:", e);
-                displayMessage(responseArea, `Error fetching API key: ${e.message}. Please add API Key in Settings.`, false);
-                if (submitBemisButton) submitBemisButton.removeAttribute('aria-busy');
-                return;
-            }
-
+            submitBemisButton.setAttribute('disabled', 'true');
+            const originalButtonContent = submitBemisButton.innerHTML;
+            submitBemisButton.innerHTML = `<svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
 
             try {
-                // The backend /api/submit-student endpoint expects schoolId and studentData (and implicitly uses the stored API key)
                 const response = await fetch('/api/submit-student', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        schoolId, 
-                        studentData: currentStudentDataForSubmission,
-                        // The backend /api/submit-student seems to get the API key from its own service,
-                        // so we don't explicitly send it here unless the backend endpoint changes.
-                        // The previous version of this frontend code was sending it to /api/submit-to-bemis
-                        // which is different. I'm aligning with the existing /api/submit-student structure.
-                    }),
+                    body: JSON.stringify({ schoolId, studentData: currentStudentDataForSubmission }),
                 });
                 const result = await response.json();
-                displayMessage(responseArea, result.message, result.success);
-                if (!result.success && result.data) { // If BEMIS returned specific errors
+                displayMessage(bemisResponseAreaWrapper, result.message, result.success); 
+                if (!result.success && result.data) {
                      const detailsPre = document.createElement('pre');
                      detailsPre.textContent = JSON.stringify(result.data, null, 2);
-                     if (responseArea) responseArea.appendChild(detailsPre);
+                     detailsPre.classList.add('text-xs', 'bg-slate-700', 'p-2', 'rounded', 'mt-2', 'overflow-auto');
+                     if (bemisResponseAreaWrapper.firstChild) bemisResponseAreaWrapper.firstChild.appendChild(detailsPre);
                 }
-
             } catch (error) {
-                console.error('Error submitting data:', error);
-                displayMessage(responseArea, `Client-side error: ${error.message}`, false);
+                displayMessage(bemisResponseAreaWrapper, `Client-side error: ${error.message}`, false); 
             } finally {
-                 if (submitBemisButton) submitBemisButton.removeAttribute('aria-busy');
+                 submitBemisButton.removeAttribute('disabled');
+                 submitBemisButton.innerHTML = originalButtonContent; 
             }
         });
     }
 
     // --- Settings: API Key Management ---
-    async function fetchApiKeyCount() {
+    async function fetchApiKeyCount() { 
         if (!apiKeyCountElement) return;
         try {
-            // Assuming the endpoint is /api/settings/apikeys/count based on previous context
             const response = await fetch('/api/settings/apikeys/count'); 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             const result = await response.json();
-            if (result.success) {
-                apiKeyCountElement.textContent = result.count;
-            } else {
-                apiKeyCountElement.textContent = 'Error';
-                displayMessage(settingsResponseArea, result.message || 'Failed to fetch API key count.', false);
-            }
-        } catch (error) {
-            console.error('Error fetching API key count:', error);
-            apiKeyCountElement.textContent = 'Error';
-            displayMessage(settingsResponseArea, `Client-side error fetching count: ${error.message}`, false);
-        }
+            if (result.success) apiKeyCountElement.textContent = result.count;
+            else { apiKeyCountElement.textContent = 'Error'; displayMessage(settingsResponseAreaWrapper, result.message || 'Failed to fetch API key count.', false); }
+        } catch (error) { apiKeyCountElement.textContent = 'Error'; displayMessage(settingsResponseAreaWrapper, `Client-side error fetching count: ${error.message}`, false); }
     }
-
-    if (apiKeyForm && openRouterApiKeyInput && settingsResponseArea) {
+    if (apiKeyForm && openRouterApiKeyInput && addApiKeyButton) { 
         apiKeyForm.addEventListener('submit', async function(event) {
             event.preventDefault();
-            if(settingsResponseArea) settingsResponseArea.className = 'hidden';
+            if(settingsResponseAreaWrapper) settingsResponseAreaWrapper.innerHTML = '';
             const apiKey = openRouterApiKeyInput.value.trim();
-
-            if (!apiKey) {
-                displayMessage(settingsResponseArea, 'Please enter an API key.', false);
-                return;
-            }
-
-            const addApiKeyButton = document.getElementById('addApiKeyButton');
-            if (addApiKeyButton) addApiKeyButton.setAttribute('aria-busy', 'true');
-
+            if (!apiKey) { displayMessage(settingsResponseAreaWrapper, 'Please enter an API key.', false); return; }
+            addApiKeyButton.setAttribute('disabled', 'true'); 
             try {
-                 // Assuming the endpoint is /api/settings/apikeys based on previous context
-                const response = await fetch('/api/settings/apikeys', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ apiKey }),
-                });
+                const response = await fetch('/api/settings/apikeys', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey }), });
                 const result = await response.json();
-                displayMessage(settingsResponseArea, result.message, result.success);
-                if (result.success) {
-                    openRouterApiKeyInput.value = ''; 
-                    if (result.count !== undefined && apiKeyCountElement) {
-                        apiKeyCountElement.textContent = result.count;
-                    } else {
-                        fetchApiKeyCount(); 
-                    }
-                }
-            } catch (error) {
-                console.error('Error adding API key:', error);
-                displayMessage(settingsResponseArea, `Client-side error adding key: ${error.message}`, false);
-            } finally {
-                if (addApiKeyButton) addApiKeyButton.removeAttribute('aria-busy');
-            }
+                displayMessage(settingsResponseAreaWrapper, result.message, result.success);
+                if (result.success) { openRouterApiKeyInput.value = ''; fetchApiKeyCount(); }
+            } catch (error) { displayMessage(settingsResponseAreaWrapper, `Client-side error adding key: ${error.message}`, false);
+            } finally { addApiKeyButton.removeAttribute('disabled'); }
+        });
+    }
+
+    // --- Settings: BEMIS Session Cookie Management ---
+    if (sessionCookieForm && bemisSessionCookieInput && saveSessionCookieButton) { 
+        sessionCookieForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            if (sessionResponseAreaWrapper) sessionResponseAreaWrapper.innerHTML = '';
+            const cookieValue = bemisSessionCookieInput.value.trim();
+            if (!cookieValue) { displayMessage(sessionResponseAreaWrapper, 'Please enter BEMIS session cookie.', false); return; }
+            saveSessionCookieButton.setAttribute('disabled', 'true');
+            try {
+                const response = await fetch('/api/settings/session-cookie', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionCookie: cookieValue }), });
+                const result = await response.json();
+                displayMessage(sessionResponseAreaWrapper, result.message, result.success);
+                if (result.success) bemisSessionCookieInput.value = ''; 
+            } catch (error) { displayMessage(sessionResponseAreaWrapper, `Client-side error saving cookie: ${error.message}`, false);
+            } finally { saveSessionCookieButton.removeAttribute('disabled'); }
         });
     }
 
     // Initial fetch of API key count
-    fetchApiKeyCount();
-
-    // --- Settings: BEMIS Session Cookie Management ---
-    if (sessionCookieForm && bemisSessionCookieInput && saveSessionCookieButton && sessionResponseArea) {
-        sessionCookieForm.addEventListener('submit', async function(event) {
-            event.preventDefault();
-            if (sessionResponseArea) {
-                sessionResponseArea.className = 'hidden';
-                sessionResponseArea.innerHTML = '';
-            }
-            const cookieValue = bemisSessionCookieInput.value.trim();
-
-            if (!cookieValue) {
-                displayMessage(sessionResponseArea, 'Please enter the BEMIS session cookie value.', false);
-                return;
-            }
-
-            if (saveSessionCookieButton) saveSessionCookieButton.setAttribute('aria-busy', 'true');
-
-            try {
-                const response = await fetch('/api/settings/session-cookie', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sessionCookie: cookieValue }),
-                });
-                const result = await response.json();
-                displayMessage(sessionResponseArea, result.message, result.success);
-                if (result.success) {
-                    bemisSessionCookieInput.value = ''; // Clear input on success
-                }
-            } catch (error) {
-                console.error('Error saving session cookie:', error);
-                displayMessage(sessionResponseArea, `Client-side error saving session cookie: ${error.message}`, false);
-            } finally {
-                if (saveSessionCookieButton) saveSessionCookieButton.removeAttribute('aria-busy');
-            }
-        });
-    }
+    if (typeof fetchApiKeyCount === "function") fetchApiKeyCount();
 });

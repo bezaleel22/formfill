@@ -1,126 +1,159 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BEMIS AI Form Extractor</title>
-    <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@latest/css/pico.min.css">
+    <title>BEMIS AI Form Extractor - Tailwind CSS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom scrollbar for webkit browsers */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        .hidden { display: none; }
+        #cameraFeed { width: 100%; height: 100%; object-fit: cover; }
+        #dropZoneLabel.dragover { background-color: #334155; border-color: #3b82f6; }
+        .alert { padding: 1rem; border-radius: 0.375rem; margin-bottom: 1rem; font-size: 0.875rem; }
+        .alert-success { background-color: #10b981; color: #ffffff; }
+        .alert-error { background-color: #ef4444; color: #ffffff; }
+        .alert-info { background-color: #3b82f6; color: #ffffff; }
+        .alert-warning { background-color: #f59e0b; color: #1e293b; }
+        .alert-icon { width: 1.25rem; height: 1.25rem; margin-right: 0.5rem; display: inline-block; vertical-align: middle; }
+        @keyframes slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(300%); } }
+        .animate-slide { animation: slide 1.5s linear infinite; }
+    </style>
 </head>
-<body>
-    <main class="container">
-        <header>
-            <h1>BEMIS AI Form Extractor</h1>
-        </header>
 
-        <section id="aiExtractionSection">
-            <h2>1. AI Form Data Extraction</h2>
-            <form id="aiFormExtractForm" enctype="multipart/form-data">
-                <fieldset>
-                    <label for="formImageUpload">
-                        Upload Handwritten Form Image:
-                        <input type="file" id="formImageUpload" name="formImage" accept="image/*">
-                    </label>
-                    <button type="button" id="scanButton" aria-label="Scan with Camera">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-camera" viewBox="0 0 16 16">
-                            <path d="M15 12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h1.172a3 3 0 0 0 2.12-.879l.83-.828A1 1 0 0 1 6.827 3h2.344a1 1 0 0 1 .707.293l.828.828A3 3 0 0 0 12.828 5H14a1 1 0 0 1 1 1v6zM2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4H2z"/>
-                            <path d="M8 11a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5zm0 1a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM3 6.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0z"/>
-                        </svg>
-                        Use Camera
-                    </button>
-                </fieldset>
-                <div id="imagePreviewContainer" class="hidden">
-                    <img id="imagePreview" src="#" alt="Image Preview" style="max-width: 100%; max-height: 300px; margin-top: 10px;"/>
+<body class="bg-slate-900 text-slate-200 font-sans antialiased">
+    <div class="flex flex-col lg:flex-row min-h-screen">
+        <!-- Sidebar Toggle Button (Mobile) -->
+        <button id="sidebarToggle" class="lg:hidden fixed top-4 right-4 z-50 p-2 bg-slate-700 text-slate-100 rounded-md shadow-lg">
+            <svg class="w-6 h-6" id="openIcon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+            <svg class="w-6 h-6 hidden" id="closeIcon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+        <div id="sidebarOverlay" class="lg:hidden hidden fixed inset-0 bg-black/50 z-30"></div>
+
+        <!-- Right Sidebar -->
+        <aside id="settingsSidebar" class="fixed top-0 right-0 h-full w-72 md:w-80 bg-slate-800 shadow-xl border-l border-slate-700 p-6 space-y-6 overflow-y-auto transform translate-x-full lg:translate-x-0 lg:static lg:h-auto lg:shadow-none lg:border-0 z-40 transition-transform duration-300 ease-in-out">
+            <div class="flex justify-between items-center lg:hidden">
+                <h2 class="text-xl font-semibold text-slate-100">Settings & Model</h2>
+                <button id="closeSidebarButton" class="p-1 text-slate-400 hover:text-slate-200"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+            </div>
+            <div class="hidden lg:block"><h2 class="text-xl font-semibold text-slate-100 mb-6">Settings & Model</h2></div>
+
+            <section>
+                <h3 class="text-sm font-semibold mb-2 text-slate-400 uppercase tracking-wider">AI Model</h3>
+                <select id="aiModelSelect" name="aiModel" class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-100 text-sm">
+                    <option value="qwen/qwen2.5-vl-72b-instruct:free" selected>Qwen2.5 VL 72B (Free)</option>
+                    <option value="qwen/qwen-vl-max">Qwen VL Max</option>
+                </select>
+            </section>
+            <hr class="border-slate-700">
+            <section>
+                <h3 class="text-sm font-semibold mb-2 text-slate-400 uppercase tracking-wider">BEMIS Settings</h3>
+                <div>
+                    <label for="schoolId" class="block text-sm font-medium text-slate-400 mb-1">School ID (for BEMIS):</label>
+                    <input type="text" id="schoolId" name="schoolId" value="193" required class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-slate-100">
                 </div>
-                <fieldset>
-                    <label for="aiModelSelect">
-                        Select AI Model:
-                        <select id="aiModelSelect" name="aiModel">
-                            <option value="qwen/qwen2.5-vl-72b-instruct:free" selected>Qwen2.5 VL 72B Instruct (Free - Default)</option>
-                            <option value="qwen/qwen-vl-max">Qwen VL Max</option>
-                        </select>
-                    </label>
-                </fieldset>
-                <button type="submit" id="extractDataButton">Extract Data with AI</button>
-            </form>
-            <div id="aiResponseArea" class="hidden response-area"></div>
-        </section>
+            </section>
+            <hr class="border-slate-700">
+            <section>
+                <h3 class="text-sm font-semibold mb-2 text-slate-400 uppercase tracking-wider">OpenRouter API Key</h3>
+                <form id="apiKeyForm" class="space-y-2">
+                    <div>
+                        <label for="openRouterApiKey" class="sr-only">OpenRouter API Key</label>
+                        <input type="password" id="openRouterApiKey" name="openRouterApiKey" placeholder="Enter OpenRouter API key" class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-100 text-sm">
+                    </div>
+                    <button type="submit" id="addApiKeyButton" class="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-sky-500">Add API Key</button>
+                </form>
+                <p class="text-xs text-slate-400 mt-2">Current Keys Stored: <span id="apiKeyCount" class="font-semibold text-slate-200">0</span></p>
+                <div id="settingsResponseAreaWrapper" class="mt-2"></div>
+            </section>
+            <hr class="border-slate-700">
+            <section>
+                <h3 class="text-sm font-semibold mb-2 text-slate-400 uppercase tracking-wider">BEMIS Session Cookie</h3>
+                <form id="sessionCookieForm" class="space-y-2">
+                    <div>
+                        <label for="bemisSessionCookie" class="sr-only">BEMIS Session Cookie</label>
+                        <input type="password" id="bemisSessionCookie" name="bemisSessionCookie" placeholder="Enter BEMIS session cookie" class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-100 text-sm">
+                    </div>
+                    <button type="submit" id="saveSessionCookieButton" class="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-emerald-500">Save Session Cookie</button>
+                </form>
+                <div id="sessionResponseAreaWrapper" class="mt-2"></div>
+            </section>
+        </aside>
 
-        <dialog id="cameraModal">
-            <article>
-                <header>
-                    <a href="#close" aria-label="Close" class="close close-modal-button"></a>
-                    Take Photo
+        <!-- Main Content -->
+        <main class="flex-1 p-4 md:p-8">
+            <div class="max-w-4xl mx-auto space-y-6">
+                <header class="mb-6 mt">
+                    <h1 class="text-3xl font-bold text-blue-400">AutoFill</h1>
                 </header>
-                <video id="cameraFeed" autoplay playsinline style="width: 100%; max-width: 500px;"></video>
-                <canvas id="photoCanvas" style="display:none;"></canvas>
-                <footer>
-                    <button id="captureButton" class="contrast">Capture Photo</button>
-                    <button class="secondary close-modal-button">Cancel</button>
-                </footer>
-            </article>
-        </dialog>
 
-        <section id="bemisSubmissionSection">
-            <h2>2. Review & Submit to BEMIS</h2>
-            <form id="studentForm">
-                <fieldset>
-                    <label for="schoolId">
-                        School ID (for BEMIS):
-                        <input type="text" id="schoolId" name="schoolId" value="193" required>
-                    </label>
-                </fieldset>
+                <!-- Upload Section -->
+                <section id="aiExtractionSection" class="bg-slate-800 p-6 rounded-lg shadow-md relative overflow-hidden">
+                    <div id="extractionProgressBarContainer" class="h-1 w-full absolute top-0 left-0 bg-slate-700/50 rounded-t-lg overflow-hidden hidden">
+                        <div id="extractionProgressBar" class="h-full bg-blue-500 w-1/3 animate-slide"></div>
+                    </div>
+                    
+                    <div class="flex flex-col md:flex-row md:justify-between md:items-start mb-4 pt-2">
+                        <h2 class="text-xl font-semibold text-slate-300">1. Upload Form Image</h2>
+                        <form id="studentForm" class="w-full md:w-auto">
+                            <div id="inlineReviewSubmitControls" class="hidden opacity-0 transform -translate-y-2 transition-all duration-300 ease-in-out md:ml-4 mt-2 md:mt-0 flex-shrink-0 space-y-1 w-full md:w-auto" style="max-width: 360px;">
+                                <label for="studentFullName" class="block text-xs font-medium text-slate-400">Review Student Full Name:</label>
+                                <div class="flex items-center space-x-2">
+                                    <input type="text" id="studentFullName" name="studentFullName" placeholder="Review Full Name"
+                                        class="flex-grow px-2 py-1 bg-slate-700 border border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-slate-100 text-xs" style="height: 30px;">
+                                    <button type="submit" id="submitBemisButton" title="Submit to BEMIS"
+                                        class="flex items-center justify-center p-0 border border-transparent rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-slate-900 focus:ring-purple-500" style="height: 30px; width: 30px;">
+                                        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                          <path fill-rule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <p class="text-xs text-slate-500">Correct name if needed (Surname Firstname Othername).</p>
+                            </div>
+                        </form>
+                    </div>
 
-                <article id="reviewStudentNameSection" class="hidden">
-                    <h4>Review and Correct Student Name:</h4>
-                    <fieldset>
-                        <label for="studentSurname">
-                            Surname:
-                            <input type="text" id="studentSurname" name="student.Surname">
+                    <form id="aiFormExtractForm" enctype="multipart/form-data" class="space-y-4">
+                        <label for="formImageUpload" id="dropZoneLabel" class="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed border-slate-600 hover:border-blue-500 rounded-lg cursor-pointer bg-slate-700 hover:bg-slate-600 transition-colors duration-200 ease-in-out">
+                            <input type="file" id="formImageUpload" name="formImage" accept="image/*" class="hidden">
+                            <div class="flex flex-col items-center justify-center pointer-events-none">
+                                <svg class="w-12 h-12 text-slate-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                                <p class="text-slate-400">Drag & drop image here, or <span class="text-blue-400 font-semibold">click to browse</span>.</p>
+                                <p class="text-xs text-slate-500 mt-1">PNG, JPG, GIF up to 10MB</p>
+                            </div>
                         </label>
-                        <label for="studentFirstName">
-                            First Name:
-                            <input type="text" id="studentFirstName" name="student.FirstName">
-                        </label>
-                        <label for="studentOtherName">
-                            Other Name(s):
-                            <input type="text" id="studentOtherName" name="student.OtherName">
-                        </label>
-                    </fieldset>
-                    <p><small>Full extracted data will be submitted. Only name fields are shown for quick correction.</small></p>
-                </article>
-                
-                <button type="submit" id="submitBemisButton">Submit to BEMIS</button>
-            </form>
-            <div id="responseArea" class="hidden response-area"></div>
-        </section>
+                        <button type="button" id="mobileScanButton" class="md:hidden w-full flex items-center justify-center px-4 py-3 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-teal-500">
+                            <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><path d="M2 8a2 2 0 012-2h1.172a2 2 0 011.414.586l.828.828A2 2 0 009.828 6h.344a2 2 0 001.414-.586l.828-.828A2 2 0 0113.828 4H15a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V8zm5 3a3 3 0 100-6 3 3 0 000 6z"></path></svg>
+                            Scan with Camera
+                        </button>
+                        <div id="imagePreviewContainer" class="hidden mt-4 text-center">
+                            <img id="imagePreview" src="#" alt="Image Preview" class="max-w-full max-h-64 inline-block rounded-md shadow border border-slate-700" />
+                        </div>
+                    </form>
+                    <div id="aiResponseAreaWrapper" class="mt-4"></div>
+                    <div id="bemisResponseAreaWrapper" class="mt-4"></div> <!-- For BEMIS submission results -->
+                </section>
+                <!-- bemisSubmissionSection is now removed -->
+            </div>
+        </main>
+    </div>
 
-        <section id="settingsSection">
-            <h2>Settings</h2>
-            <form id="apiKeyForm">
-                <fieldset>
-                    <label for="openRouterApiKey">
-                        OpenRouter API Key:
-                        <input type="password" id="openRouterApiKey" name="openRouterApiKey" placeholder="Enter your OpenRouter API key">
-                    </label>
-                    <button type="submit" id="addApiKeyButton">Add API Key</button>
-                </fieldset>
-                <p>Current API Keys Stored: <span id="apiKeyCount">0</span></p>
-            </form>
-            <div id="settingsResponseArea" class="hidden response-area" style="margin-bottom: 1em;"></div>
-
-            <form id="sessionCookieForm" style="margin-top: 1.5rem;">
-                <fieldset>
-                    <label for="bemisSessionCookie">
-                        BEMIS Session Cookie:
-                        <input type="password" id="bemisSessionCookie" name="bemisSessionCookie" placeholder="Enter your BEMIS session cookie value">
-                    </label>
-                    <button type="submit" id="saveSessionCookieButton">Save Session Cookie</button>
-                </fieldset>
-            </form>
-            <div id="sessionResponseArea" class="hidden response-area"></div>
-        </section>
-        
-    </main>
+    <!-- Full-screen Camera Modal -->
+    <div id="cameraModal" class="hidden fixed inset-0 bg-black z-50 flex flex-col items-center justify-center">
+        <video id="cameraFeed" autoplay playsinline class="w-full h-full object-cover"></video>
+        <canvas id="photoCanvas" class="hidden"></canvas>
+        <button id="captureButton" aria-label="Capture photo" class="absolute bottom-8 p-4 bg-white/80 hover:bg-white rounded-full shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black focus:ring-blue-500">
+            <svg class="w-8 h-8 text-blue-600" fill="currentColor" viewBox="0 0 20 20"><path d="M2 8a2 2 0 012-2h1.172a2 2 0 011.414.586l.828.828A2 2 0 009.828 6h.344a2 2 0 001.414-.586l.828-.828A2 2 0 0113.828 4H15a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V8zm5 3a3 3 0 100-6 3 3 0 000 6z"></path></svg>
+        </button>
+        <button id="closeCameraModalButton" aria-label="Close camera" class="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/70 text-white rounded-full focus:outline-none focus:ring-2 focus:ring-white">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+    </div>
     <script src="app.js"></script>
 </body>
 </html>
