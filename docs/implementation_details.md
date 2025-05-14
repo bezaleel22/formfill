@@ -1,29 +1,36 @@
-# Implementation Details
+# Implementation Details: AutoFill
 
-This document outlines the detailed implementation of the BEMIS Student Data Automation tool, covering key components, functionalities, challenges encountered, and the solutions developed.
+This document outlines the detailed implementation of the AutoFill tool, covering key components, functionalities, challenges encountered, and the solutions developed.
 
 ## Core Components and Flow
 
-The system automates the process of extracting student data from a handwritten registration form image and submitting it to the BEMIS portal. The general flow is:
+The system automates the process of extracting student data from a handwritten registration form image and submitting it to the BEMIS portal. The application is presented as a SaaS-style landing page with the functional app embedded. The general flow is:
 
-1.  **Frontend (Client-side)**:
-    *   User adds their OpenRouter API key (if not already present).
-    *   User selects an image of the registration form.
+1.  **Landing Page Interaction (Client-side)**:
+    *   User interacts with the landing page (Hero, Features).
+    *   User navigates to the embedded application section via scroll or "Get Started" / "Use App" buttons.
+2.  **Settings Configuration (Client-side, "Settings & Model" Tab within App)**:
+    *   User adds their OpenRouter API key (if not already present) via UI.
+    *   User adds their BEMIS session cookie via UI.
+    *   User inputs the School ID.
     *   User selects the desired AI model from a dropdown.
-2.  **Backend API (`/api/extract-form-data` using Hono on Bun.js)**: Receives the image, selected AI model name, and uses a stored API key.
-3.  **AI Data Extraction (`aiExtractionService.ts`)**: The image is sent to the chosen Vision Language Model (VLM) via OpenRouter API to extract structured student data as JSON.
-4.  **Frontend Review**: Extracted student name fields are displayed for user review and correction.
-5.  **Backend API (`/api/submit-student` using Hono on Bun.js)**: Receives the (potentially corrected) student data and school ID.
-6.  **BEMIS Data Submission (`bemisService.ts`)**: The extracted and formatted data is submitted to the BEMIS portal, handling authentication and CSRF protection.
-7.  **Response Handling**: The Hono backend API returns a success or error message to the frontend.
+3.  **Image Upload & Automatic AI Extraction (Client-side, "AI Extract" Tab within App)**:
+    *   User uploads an image of the registration form (drag & drop, browse, or camera scan).
+    *   This action automatically triggers a request to the backend.
+4.  **Backend API (`/api/extract-form-data` using Hono on Bun.js)**: Receives the image, selected AI model name (from settings), and uses a stored API key.
+5.  **AI Data Extraction (`aiExtractionService.ts`)**: The image is sent to the chosen Vision Language Model (VLM) via OpenRouter API to extract structured student data as JSON.
+6.  **Frontend Review (Client-side, "AI Extract" Tab)**: Extracted student name fields are displayed in an inline control for user review and correction.
+7.  **Backend API (`/api/submit-student` using Hono on Bun.js)**: Receives the (potentially corrected) student data and school ID (from settings).
+8.  **BEMIS Data Submission (`bemisService.ts`)**: The extracted and formatted data is submitted to the BEMIS portal, handling authentication (using stored session cookie) and CSRF protection.
+9.  **Response Handling**: The Hono backend API returns a success or error message to the frontend, displayed in the "AI Extract" tab.
 
 ## 1. Authentication and CSRF Management (BEMIS Submission)
 
 Interacting with the BEMIS portal requires handling session cookies and CSRF (Cross-Site Request Forgery) tokens.
 
-*   **Session Management (`authUtils.ts`)**:
-    *   The BEMIS session cookie (including the `XSRF-TOKEN`) is read from a local `session.txt` file. This file needs to be populated manually by the user after logging into BEMIS via a browser and copying the cookie value.
-    *   `getSessionCookie()`: Reads the full cookie string.
+*   **Session Management (`authUtils.ts`, `sessionCookieService.ts`)**:
+    *   The BEMIS session cookie (including the `XSRF-TOKEN`) is managed via the UI in the "Settings & Model" tab and stored in a local `session.txt` file by the backend.
+    *   `getSessionCookie()` (in `authUtils.ts` or `sessionCookieService.ts`): Reads the full cookie string from `session.txt`.
     *   `extractXsrfToken()`: Parses the `XSRF-TOKEN` value from the full cookie string. This token is needed for the `X-XSRF-TOKEN` request header.
 
 *   **CSRF Form Field Token (`csrfUtils.ts`)**:
@@ -35,7 +42,7 @@ Interacting with the BEMIS portal requires handling session cookies and CSRF (Cr
 
 ## 2. API Key Management (`apiKeyService.ts`)
 
-This service handles the storage and retrieval of OpenRouter API keys.
+This service handles the storage and retrieval of OpenRouter API keys, managed via the "Settings & Model" tab.
 
 *   **Storage**: API keys are stored in a JSON file (`api_keys.json`).
 *   **Functionality**:
@@ -44,13 +51,13 @@ This service handles the storage and retrieval of OpenRouter API keys.
     *   `getNextApiKey()`: Retrieves the next available key (currently the first one).
     *   `clearApiKeys()`: Removes all keys.
     *   `getApiKeysCount()`: Returns the number of stored keys.
-*   **Frontend Integration**: The SPA uses API endpoints (`/api/settings/apikeys/*`) to interact with this service.
+*   **Frontend Integration**: The "Settings & Model" tab uses API endpoints (`/api/settings/apikeys/*`) to interact with this service.
 
 ## 3. AI Data Extraction (`aiExtractionService.ts`)
 
 This service is responsible for converting the handwritten form image into structured JSON data.
 
-*   **Model**: Dynamically uses the AI model specified by the user (e.g., `qwen/qwen-vl-max`, `qwen/qwen2.5-vl-72b-instruct:free`) via the OpenRouter API (`https://openrouter.ai/api/v1/chat/completions`). The `modelName` is passed as a parameter to `extractStudentDataFromImage()`.
+*   **Model**: Dynamically uses the AI model specified by the user (selected in the "Settings & Model" tab, e.g., `qwen/qwen-vl-max`, `qwen/qwen2.5-vl-72b-instruct:free`) via the OpenRouter API. The `modelName` is passed as a parameter to `extractStudentDataFromImage()`.
 *   **Image Handling**:
     *   The input image buffer is converted to a Base64 Data URI (`bufferToDataURI()`) for embedding in the API request.
 *   **Prompt Engineering**: A detailed prompt guides the VLM to:
@@ -80,7 +87,7 @@ This component handles the actual POST request to the BEMIS portal.
 *   **Payload Preparation (`formDataUtils.ts`)**:
     *   `prepareStudentDataPayload()`:
         *   Constructs a `URLSearchParams` object.
-        *   Includes `id` ("0"), `schoolid`, and the `__RequestVerificationToken`.
+        *   Includes `id` ("0"), `schoolid` (from "Settings & Model" tab), and the `__RequestVerificationToken`.
         *   Iterates through `ALL_STUDENT_DATA_KEYS` and appends each key-value pair.
         *   Ensures all fields defined in `ALL_STUDENT_DATA_KEYS` are present.
 *   **HTTP POST Request (`bemisService.ts`)**:
@@ -109,38 +116,66 @@ Key API endpoints built using Hono:
     *   Receives `schoolId` and `studentData` (JSON) in the request body.
     *   Calls `processStudentSubmission()` with the data.
     *   Returns JSON response indicating BEMIS submission success or failure.
-*   **API Key Management Endpoints (e.g., `/api/settings/apikeys/*`)**:
+*   **API Key Management Endpoints (`/api/settings/apikeys/*`)**:
     *   `POST /api/settings/apikeys`: Adds a new API key.
     *   `GET /api/settings/apikeys/count`: Gets the count of stored API keys.
-    *   `GET /api/settings/apikeys/current`: Gets the current/next API key.
-    *   `DELETE /api/settings/apikeys`: Removes a specific API key.
+    *   `GET /api/settings/apikeys/current`: Gets the current/next API key (though UI primarily uses count).
+    *   `DELETE /api/settings/apikeys`: Removes a specific API key (not currently implemented in UI but backend might support).
+*   **Session Cookie Management Endpoint (`/api/settings/session-cookie`)**:
+    *   `POST /api/settings/session-cookie`: Saves the provided BEMIS session cookie to `session.txt`.
 *   **Static Files**: Serves the `public` directory using `serveStatic` from `hono/bun`.
 
 ## 6. Frontend (`public/index.html` & `public/app.js`)
 
-A simple HTML interface for user interaction.
+The frontend is a single HTML page (`index.html`) styled with Tailwind CSS and powered by `app.js`.
 
 *   **`index.html`**:
-    *   File input for image selection.
-    *   Dropdown (`<select id="aiModelSelect">`) for AI model selection.
-    *   Section for OpenRouter API key management.
-    *   Text input for School ID.
-    *   Button to trigger AI extraction.
-    *   Section to review/correct student name fields.
-    *   Button to trigger BEMIS submission.
-    *   Areas to display image preview and responses.
+    *   **Landing Page Structure**:
+        *   Sticky Header with "AutoFill" title and "Use App" button.
+        *   Hero section with title, tagline, and "Get Started Now" button.
+        *   Features section highlighting key benefits.
+        *   Footer with copyright.
+        *   Dynamic background with grid and glowing/animated artifacts.
+    *   **Embedded Application Section (`#the-app-section`)**:
+        *   Styled to appear as a distinct app area on the page.
+        *   Contains tab navigation ("AI Extract", "Settings & Model").
+        *   **"AI Extract" Tab**:
+            *   Image dropzone (drag & drop, click to browse).
+            *   "Scan with Camera" button (for mobile).
+            *   Image preview area.
+            *   Inline controls for reviewing student's full name and submitting to BEMIS (appear after extraction).
+            *   Response areas for AI extraction and BEMIS submission.
+        *   **"Settings & Model" Tab**:
+            *   Dropdown (`<select id="aiModelSelect">`) for AI model selection.
+            *   Input for School ID.
+            *   Form for OpenRouter API key management (add key, view count).
+            *   Form for BEMIS session cookie management.
+            *   Response areas for settings updates.
+    *   Full-screen modal for camera capture.
+
 *   **`app.js`**:
-    *   Handles image preview and camera capture.
-    *   Manages API key addition and count display.
-    *   On "Extract Data with AI" click:
-        *   Creates a `FormData` object with the image and selected `aiModel`.
-        *   Makes a `fetch` POST request to `/api/extract-form-data`.
-        *   Populates review fields with extracted name data.
-        *   Displays success/error messages.
-    *   On "Submit to BEMIS" click:
-        *   Gathers corrected name data, school ID, and the full AI-extracted data.
-        *   Makes a `fetch` POST request to `/api/submit-student`.
-        *   Displays the final success or error message.
+    *   **Landing Page Interactivity**:
+        *   Smooth scrolling for "Get Started Now" and "Use App" buttons to `#the-app-section`.
+        *   Intersection Observer for fade-in animations on landing page sections.
+    *   **Application Logic**:
+        *   Tab switching between "AI Extract" and "Settings & Model".
+        *   Image preview and camera capture functionality.
+        *   Drag & drop support for image uploads.
+        *   **Settings Management**:
+            *   Handles API key addition and count display via `/api/settings/apikeys/*`.
+            *   Handles BEMIS session cookie saving via `/api/settings/session-cookie`.
+        *   **AI Extraction Trigger**:
+            *   Automatically on image selection (file input, drop, or camera capture).
+            *   Creates a `FormData` object with the image and selected `aiModel` (from Settings tab).
+            *   Makes a `fetch` POST request to `/api/extract-form-data`.
+            *   Populates review fields (student full name) with extracted data.
+            *   Displays success/error messages in `aiResponseAreaWrapper`.
+        *   **BEMIS Submission Trigger**:
+            *   On "Submit to BEMIS" button click (in inline controls).
+            *   Gathers corrected name data, School ID (from Settings tab), and the full AI-extracted data.
+            *   Makes a `fetch` POST request to `/api/submit-student`.
+            *   Displays the final success or error message in `bemisResponseAreaWrapper`.
+        *   General message display utility for alerts.
 
 ## 7. Key Challenges & Solutions During Development
 
@@ -151,11 +186,16 @@ A simple HTML interface for user interaction.
 *   **BEMIS Success Response**: Handled `204 No Content` as success.
 *   **Payload Completeness**: `formDataUtils.ts` ensures all keys are sent.
 *   **Hono Form Data Handling**: Adapted to Hono's `c.req.formData()` and `File` object.
-*   **API Key Security**: Stored keys in `api_keys.json` (gitignore recommended) and managed via a service, rather than exposing directly in frontend JS for API calls.
+*   **API Key & Session Cookie Security**: Stored in backend files (`api_keys.json`, `session.txt`), managed via UI and specific API endpoints, rather than exposing directly in frontend JS. Files are gitignored.
+*   **Mobile Camera Permissions & HTTPS**: Ensured `isSecureContext` checks and clear error messaging for camera access.
+*   **UI Responsiveness & Touch Issues**: Addressed with `event.stopPropagation()` and careful element layering.
+*   **Dynamic UI Updates**: Managing visibility and content of inline review controls and response areas.
 
 ## 8. Configuration and Setup
 
-*   **`session.txt`**: Manually created for BEMIS session cookie.
-*   **OpenRouter API Key**: Added via the UI (Settings section).
-*   **School ID**: Provided in the UI.
+*   **BEMIS Session Cookie**: Added via the UI ("Settings & Model" tab).
+*   **OpenRouter API Key**: Added via the UI ("Settings & Model" tab).
+*   **School ID**: Provided in the UI ("Settings & Model" tab).
+*   **AI Model**: Selected from dropdown in UI ("Settings & Model" tab).
 *   **Constants (`constants.ts`)**: Defines base URLs, paths, AI model names, etc.
+*   **`.env` file (Optional for local dev)**: Can be used for `OPENROUTER_API_KEY` if needed by backend directly, though current flow relies on UI-provided keys.
